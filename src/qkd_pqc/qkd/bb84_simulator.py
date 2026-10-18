@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import logging
+import math
 import random
 from pathlib import Path
 
@@ -75,6 +76,7 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
         ("qber_threshold", config.qber_threshold),
     ):
         if (isinstance(probability, bool) or not isinstance(probability, (int, float))
+                or not math.isfinite(probability)
                 or not 0.0 <= probability <= 1.0):
             raise ValueError(f"{name} must be between 0 and 1 inclusive.")
 

@@ -1,0 +1,11 @@
+dimension,qkd,pqc,evidence_type
+Security basis,Protocol security is based on quantum-state measurement behavior under protocol and implementation assumptions.,Computational security relies on the Module-LWE-based construction specified by NIST FIPS 203.,qualitative_reference_based
+Key establishment,"Transmits quantum states, then uses classical post-processing.",Encapsulation produces a shared secret over classical inputs and outputs.,qualitative_reference_based
+Quantum adversary,The protocol's security motivation concerns information gain from quantum measurement; real deployment security remains device- and proof-dependent.,ML-KEM-768 is designed for post-quantum security under its computational assumptions; this is not an unconditional guarantee.,qualitative_reference_based
+Authentication,Requires an authenticated classical channel; QKD does not remove the authentication bootstrap requirement.,ML-KEM alone does not authenticate endpoints; an authenticated protocol is still required.,qualitative_reference_based
+Infrastructure,Requires quantum transmission equipment/channel plus authenticated classical communications.,Uses classical computation and communication; deployed applications still need cryptographic protocol integration.,qualitative_reference_based
+Deployment and operations,"Hardware, channel conditions, integration, and operational constraints require deployment-specific assessment.","Implementation support, protocol integration, key handling, and system constraints require deployment-specific assessment.",qualitative_assumption
+Scalability and limitations,"This project has no field deployment data; the toy simulation cannot establish range, cost, throughput, or security.","This software primitive benchmark cannot establish network performance, cost, or universal superiority over QKD.",project_scope_limit
+Measured QKD: mean_qber,0.08000000,not applicable,measured_project_data
+Measured QKD: mean_sifted_fraction,0.50000000,not applicable,measured_project_data
+Measured QKD: valid_run_rows,1,not applicable,measured_project_data

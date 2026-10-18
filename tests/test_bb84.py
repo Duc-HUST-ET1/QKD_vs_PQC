@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+import pytest
+
 from qkd_pqc.config import QKDConfig
 from qkd_pqc.qkd.bb84_simulator import simulate_bb84
 
@@ -63,3 +65,33 @@ def test_simulator_requires_seed():
         assert "seed" in str(exc)
     else:
         raise AssertionError("Missing seed should be rejected.")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        QKDConfig(10, float("nan"), 0.0, 0.11),
+        QKDConfig(10, 0.0, float("inf"), 0.11),
+        QKDConfig(10, 0.0, 0.0, float("nan")),
+        QKDConfig(10, -0.01, 0.0, 0.11),
+        QKDConfig(10, 0.0, 1.01, 0.11),
+    ],
+)
+def test_invalid_probabilities_are_rejected(config):
+    with pytest.raises(ValueError):
+        simulate_bb84(config, seed=1)
+
+
+def test_no_eve_and_no_channel_error_keeps_matching_bits_error_free():
+    result = simulate_bb84(QKDConfig(10_000, 0.0, 0.0, 0.11), seed=42)
+
+    assert result.sifted_bits > 0
+    assert result.error_bits == 0
+    assert result.qber == 0.0
+
+
+def test_intercept_resend_produces_expected_error_trend():
+    result = simulate_bb84(QKDConfig(100_000, 0.0, 1.0, 0.11), seed=42)
+
+    # Full intercept-resend gives an expected 25% error rate in sifted bits.
+    assert result.qber == pytest.approx(0.25, abs=0.01)
