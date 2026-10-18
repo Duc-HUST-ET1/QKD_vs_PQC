@@ -1,0 +1,20 @@
+# Values are validated by qkd_pqc.config before execution.
+project:
+  name: "QKD vs PQC"
+  random_seed: 42
+
+qkd:
+  n_signals: 100000
+  channel_error_rate: 0.01
+  eve_probability: 0.0
+  qber_threshold: 0.11
+
+pqc:
+  algorithm: "ML-KEM-768"
+  warmup_iterations: 50
+  measured_iterations: 1000
+
+output:
+  raw_data_dir: "data/raw"
+  processed_data_dir: "data/processed"
+  figures_dir: "figures"

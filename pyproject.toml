@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qkd-vs-pqc"
+version = "0.1.0"
+description = "Reproducible educational comparison of BB84 simulation and ML-KEM-768"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0.1",
+    "matplotlib>=3.8",
+]
+
+[project.optional-dependencies]
+mlkem = ["pqcrypto>=0.3.4"]
+dev = ["pytest>=8.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
