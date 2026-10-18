@@ -1,36 +1,34 @@
-# Project scope
+# Phạm vi dự án
 
-## Research question
+## Câu hỏi nghiên cứu
 
-How do QKD and PQC differ in their security assumptions and key-establishment performance, and how
-do their infrastructure requirements affect deployment suitability?
+QKD và PQC khác nhau như thế nào về giả định bảo mật và hiệu năng thiết lập khóa, và yêu cầu hạ
+tầng ảnh hưởng ra sao đến tính phù hợp khi triển khai?
 
-## Included work
+## Nội dung bao gồm
 
-1. An educational classical simulation of BB84 state/basis behavior, channel bit flips, and a
-   configurable intercept-resend Eve.
-2. A benchmark adapter for a genuine ML-KEM-768 implementation compatible with NIST FIPS 203.
-   It measures key generation, encapsulation, and decapsulation independently when support exists.
-3. A qualitative, reference-led comparison of security models and deployment constraints.
-4. CSV provenance, reproducibility, tests, and plots derived only from collected run files.
+1. Mô phỏng cổ điển mang tính giáo dục về BB84 bits/bases, channel bit flips, intercept-resend Eve.
+2. Adapter benchmark ML-KEM-768 chuẩn hóa theo NIST FIPS 203, chỉ chạy khi implementation thật
+   tương thích và được kiểm tra.
+3. So sánh định tính, có nguồn, về mô hình bảo mật và ràng buộc triển khai.
+4. CSV có provenance, tái lập, tests và biểu đồ được tạo từ CSV thực tế.
 
-## Excluded work and interpretation
+## Ngoài phạm vi và giới hạn diễn giải
 
-The BB84 simulation is not a quantum simulator or a secure QKD stack. It does not implement
-authentication, error correction, privacy amplification, finite-key proofs, optical effects,
-device side channels, or hardware. Its 0.11 QBER threshold is a teaching parameter only: passing
-that threshold does not prove a key secure.
+BB84 ở đây không phải mô phỏng lượng tử hoặc stack QKD an toàn. Không mô hình hóa phần cứng,
+optical effects/losses, side channel, error correction, privacy amplification, finite-key proof
+hay quy trình xác thực. Ngưỡng QBER 0.11 là tham số dạy học; vượt qua ngưỡng không chứng minh khóa
+an toàn.
 
-ML-KEM-768 is the NIST-standardized algorithm specified by FIPS 203. Benchmark availability
-depends on an installed compatible implementation. The benchmark does not measure networking,
-protocol integration, key-management overhead, or installation. It does not establish that PQC is
-universally faster or more suitable than QKD.
+ML-KEM-768 là thuật toán NIST FIPS 203. Benchmark phụ thuộc implementation tương thích; không đo
+network, cài đặt, integration protocol hay key management. Không chứng minh PQC luôn nhanh hơn hay
+phù hợp hơn QKD.
 
-No invented quantitative cost, range, or throughput comparison is in scope. Measured values must
-be explicitly distinguished from qualitative claims and assumptions.
+Không tạo số liệu cost, distance, throughput hoặc deployment chưa đo. Phân biệt kết quả đo với
+nhận định định tính và assumption.
 
-## Independent workstreams
+## Workstream độc lập
 
-All five workstreams may start in parallel against the documented interfaces. Shared interface
-changes should be coordinated by pull request; ownership and acceptance criteria are in
-`TEAM_ASSIGNMENTS.md`.
+Cả năm thành viên có thể bắt đầu song song trên API và CSV contract đã ghi. Thay đổi giao diện
+chung cần phối hợp qua PR; xem [TEAM_ASSIGNMENTS.md](TEAM_ASSIGNMENTS.md) và
+[WORKFLOW.md](WORKFLOW.md).

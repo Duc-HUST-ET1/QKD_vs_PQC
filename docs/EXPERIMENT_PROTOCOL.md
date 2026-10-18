@@ -1,75 +1,96 @@
-# Experiment protocol
+# Giao thức thí nghiệm
 
-## Shared provenance and output policy
+## Cấu hình, provenance và output
 
-Use the committed YAML configuration or record the exact alternate configuration. Run IDs are
-unique; result files are created exclusively and never overwrite prior raw runs. Store actual
-measurements in `data/raw/`, illustrative examples only in `data/example/`, derived tables in
-`data/processed/`, and figures in `figures/`. Runtime metadata records the UTC run ID/time,
-Python version, and platform where applicable. Do not write key material or shared-secret bytes.
+Config mặc định là `configs/experiment_config.yaml`; CLI nhận `--config PATH` (đường dẫn tương
+đối tính từ project root). Chạy từ root sau khi cài package editable. Giá trị mặc định:
 
-## Experiment A — simplified BB84
+- `project.random_seed=42`
+- BB84: `n_signals=100000`, `channel_error_rate=0.01`, `eve_probability=0.0`,
+  `qber_threshold=0.11`
+- PQC: `algorithm=ML-KEM-768`, `warmup_iterations=50`, `measured_iterations=1000`
+- Output: `data/raw`, `data/processed`, `figures`
 
-Inputs are `n_signals`, `channel_error_rate`, `eve_probability`, `seed`, and `qber_threshold`.
-The implementation uses a seeded Python pseudorandom generator.
+Config được kiểm tra bởi `load_config()`. BB84 dùng `random.Random(seed)`; cùng config và seed sẽ
+cho cùng thống kê nhưng run ID/timestamp mới. Seed benchmark ML-KEM không được cấu hình/ghi trong
+project; không tuyên bố rằng nó tái lập giống nhau qua môi trường.
 
-For each signal, in order:
+Writer tạo run ID có timestamp UTC và phần ngẫu nhiên; file CSV mới được mở exclusive nên không
+ghi đè. Metadata ghi Python và platform; CSV PQC ghi implementation/version. File raw là dữ liệu
+gốc; bảng `data/processed/` và hình là dẫn xuất. `.gitignore` bỏ qua CSV raw/processed và ảnh.
+Pipeline không tạo log file; stdout/stderr là nơi xem trạng thái.
 
-1. Alice independently chooses a random bit and one of two bases.
-2. Eve independently intercepts with the configured probability. For an intercepted signal, she
-   chooses a random basis, measures the prepared state (a random bit if her basis differs from
-   Alice's), and resends a state in her measurement basis.
-3. Channel bit-flip noise is applied to the resent bit (or Alice's prepared bit if not intercepted).
-4. Bob independently chooses a random basis and measures: he gets the transmitted bit if his
-   basis matches the transmitted state's basis, otherwise a random bit.
-5. Alice and Bob publicly compare bases and retain only matching-basis positions. The simulator
-   counts retained bits and mismatches and computes QBER = mismatches / retained bits. Sifted
-   fraction = retained bits / signals.
+## Experiment A — BB84 đơn giản hóa
 
-When no bits are sifted, QBER is empty/`None`; no division is performed, and status is
-`illustrative_reject` because no usable sifted observations remain. Otherwise, the result is
-`illustrative_reject` only when QBER is greater than the configured threshold; it is
-`illustrative_accept` when QBER is at or below the threshold. These names are pedagogical labels,
-not a security decision. In the
-classical bit/basis model, Eve's wrong-basis resend randomizes the state relative to the original
-basis. This is not a physical quantum-channel implementation.
+Hàm thực thi: `simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result`. Dù type
+ghi `seed` có thể None, hàm hiện yêu cầu seed không âm; CLI truyền `project.random_seed`.
 
-The run-level CSV records configuration, seed, counts, QBER, fraction, status, run ID, and
-environment and simulator-version metadata. The deterministic seed and inputs enable replay. No
-sifted key bits are exported.
+Với từng tín hiệu, code thực hiện theo thứ tự:
+
+1. Alice sinh bit ngẫu nhiên và basis nhị phân ngẫu nhiên.
+2. Với xác suất `eve_probability`, Eve chặn tín hiệu, chọn basis ngẫu nhiên. Nếu basis khớp,
+   measurement bit bằng Alice; nếu lệch, bit là ngẫu nhiên. Eve gửi lại bit và basis vừa đo.
+3. Với xác suất `channel_error_rate`, channel lật transmitted bit.
+4. Bob chọn basis ngẫu nhiên; nếu trùng transmitted basis, kết quả bằng bit truyền, ngược lại
+   code sinh bit đo ngẫu nhiên.
+5. Chỉ vị trí Bob basis trùng Alice basis được sift. Mã đếm sifted bits và mismatch.
+
+`qber = error_bits / sifted_bits`; `sifted_fraction = sifted_bits / n_signals`. Nếu không có bit
+được sift, QBER là `None`, CSV để rỗng, và status là `illustrative_reject`. Các status còn lại
+dựa vào `qber > qber_threshold`; nhãn `illustrative_accept` không phải kết luận an toàn.
+
+Đây là mô hình cổ điển của lựa chọn bit/basis, không phải trạng thái lượng tử. Không có phần cứng,
+optical loss, device side-channel, error correction, privacy amplification hay finite-key proof.
+Ngưỡng 11% là giá trị dạy học tùy cấu hình, không phải ngưỡng bảo đảm bảo mật tổng quát. Thí
+nghiệm cần QKD thực tế phải có authenticated classical channel và quy trình hậu xử lý phù hợp.
+
+Lệnh: `python scripts/run_qkd.py [--config PATH]`. Đầu ra là một row trong
+`data/raw/qkd_*.csv`; output không bao gồm các bit khóa.
 
 ## Experiment B — ML-KEM-768
 
-The adapter accepts only the `pqcrypto.kem.ml_kem_768` API; it never silently substitutes an
-algorithm. It checks the module's keypair, encapsulation, decapsulation functions by executing a
-correctness round trip before timing.
+Implementation được adapter hiện hỗ trợ là module `pqcrypto.kem.ml_kem_768` với các hàm
+`generate_keypair`, `encrypt`, `decrypt`. Capability check xác minh package version, các hàm
+callable, chạy round-trip, và xác nhận shared secret đúng. Nếu bất kỳ bước nào không đạt, adapter
+không báo sẵn sàng; không tự dùng algorithm khác.
 
-Use `time.perf_counter_ns()` for elapsed times. For each warm-up and measured repetition, prepare
-inputs outside the relevant timed section where needed. Key generation times only keypair
-generation. Encapsulation uses a pre-generated keypair and times only encapsulation. Decapsulation
-uses a keypair and ciphertext prepared before its timed section and times only decapsulation.
-Shared-secret equality is checked after timing. No output-file I/O is in the timed region.
+Mỗi warm-up iteration gọi keygen, encapsulation và decapsulation một lần, rồi kiểm tra shared
+secret; warm-up không được ghi vào CSV. Mỗi measured iteration:
 
-Each measured trial is retained separately in the CSV; median and nearest-rank p95 (rank
-`ceil(0.95 * n)`) are included for each operation. Latencies are reported in microseconds.
-Unapplicable sizes are empty. The CSV does not contain public/secret keys, ciphertext bytes, or
-shared-secret contents. Package version and platform are recorded. A failed equality check is an
-error, not a successful-looking result.
+1. Đo riêng `generate_keypair()`.
+2. Đo riêng `encrypt(public_key)` để tạo ciphertext/shared secret.
+3. Đo riêng `decrypt(secret_key, ciphertext)` rồi kiểm tra equality sau khi timer dừng.
 
-The adapter does not time an OpenSSL subprocess. Process startup and file I/O would be included in
-such a timing, so OpenSSL CLI capability is reported separately rather than treated as an
-equivalent in-process operation benchmark.
+Timer là `time.perf_counter_ns()`, chia 1,000 để báo microseconds. Timing không bao gồm ghi file.
+Key/ciphertext được tạo trong measured iteration; keygen cũng là operation timed riêng trong
+cùng vòng iteration. Không benchmark subprocess OpenSSL. Median lấy theo mẫu; p95 dùng nearest
+rank `ceil(0.95*n)`. Mã lưu từng latency sample; không chỉ lưu một row trung bình.
 
-## Experiment C — qualitative system comparison
+Output `data/raw/mlkem_*.csv` có `run_id`, timestamp UTC, operation/sample, median/p95, kích thước
+byte áp dụng, warmup/repetition count, implementation/version, platform và Python version. Dữ
+liệu bí mật không được xuất. Nếu thư viện vắng hoặc không tương thích, `run_pqc_benchmark.py` trả
+mã 2 và không tạo benchmark CSV; ghi nhận trạng thái đó là “unavailable/skipped”, không phải số
+đo.
 
-The system analysis returns named comparison dimensions with an evidence label. Qualitative
-statements cite `REFERENCES.md` and identify assumptions. Project measurements may be supplied
-separately; absent data is represented as unavailable, never as an invented number. QBER and
-cryptographic operation latency are different kinds of measures and must not be compared directly.
+## Experiment C — so sánh hệ thống định tính
 
-## Analysis
+`analyze_tradeoffs()` tạo các chiều security basis, key establishment, quantum adversary,
+authentication, infrastructure, deployment và limits. Claim định tính gắn nhãn
+`qualitative_reference_based`, `qualitative_assumption` hoặc `project_scope_limit`; metric chỉ
+được thêm khi caller đưa vào và gắn `measured_project_data`.
 
-Analysis validates required CSV headers and numeric values, skips rows whose specific plotted
-measurement is empty, labels axes and units, and writes figures only when their actual input
-measurements exist. Missing files or malformed schemas are reported explicitly. No example or
-synthetic measurement is generated to fill a gap.
+Không có số cost, range, throughput thực địa của repository. Không diễn giải QBER như latency và
+không kết luận benchmark primitive chứng minh PQC nói chung nhanh hơn QKD.
+
+## Phân tích và tái lập hình
+
+- `python scripts/run_analysis.py [--config PATH]` tìm tất cả `qkd_*.csv`, `mlkem_*.csv` trong
+  thư mục raw được cấu hình.
+- `python scripts/run_all.py [--config PATH]` chạy BB84, thử PQC tùy chọn, sau đó chỉ phân tích
+  CSV từ chính lượt chạy hiện tại.
+- Figures được ghi trong `figures/` với tên cố định; chạy lại có thể ghi đè PNG.
+- Bảng comparison được lưu tên mới trong `data/processed/`.
+- Không có CSV: script analysis thông báo skip, không tạo dữ liệu giả. Lỗi schema/file được báo.
+
+Muốn tái lập hình, giữ nguyên CSV raw cùng config và chạy lại `run_analysis.py`. Xem
+[DATA_DICTIONARY.md](DATA_DICTIONARY.md) về columns, missing values và đơn vị.

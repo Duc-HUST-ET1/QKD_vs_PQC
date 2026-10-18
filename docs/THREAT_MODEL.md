@@ -1,56 +1,46 @@
-# Threat model and security assumptions
+# Mô hình đe dọa và giả định bảo mật
 
-This document describes the comparison boundary, not a security certification.
+Tài liệu này xác định ranh giới so sánh, không phải chứng nhận bảo mật.
 
-## Assets and actors
+## Tài sản và tác nhân
 
-The compared systems establish shared key material for later use. Relevant actors are legitimate
-communicating endpoints, a passive network observer, an active network attacker, a potential
-quantum-capable attacker, and (for the BB84 teaching scenario) an intercept-resend Eve. Endpoint
-compromise, implementation vulnerabilities, supply-chain compromise, and denial of service remain
-out of scope for the toy simulation.
+Hai cách tiếp cận hướng tới thiết lập vật liệu khóa dùng tiếp trong ứng dụng. Các tác nhân liên
+quan: hai endpoint hợp lệ, người nghe lén thụ động, attacker chủ động trên mạng, attacker có năng
+lực lượng tử trong tương lai, và Eve intercept-resend trong mô hình BB84 dạy học. Compromise
+endpoint, lỗi implementation, supply-chain compromise và denial of service không được chứng minh
+hay bao phủ bởi simulator này.
 
-## BB84 / QKD assumptions and boundaries
+## BB84/QKD
 
-The textbook BB84 security intuition uses quantum-state measurement disturbance and the no-cloning
-principle. A practical QKD deployment additionally depends on device and implementation security,
-authenticated classical communication, key management, and protocol-specific security processing.
-Authentication prevents an active attacker from replacing the parties in classical
-reconciliation; it must itself be bootstrapped from a trusted credential or an existing secret.
+Trực giác bảo mật BB84 dựa vào ảnh hưởng của phép đo trạng thái lượng tử và no-cloning principle,
+trong phạm vi giả định của giao thức. Hệ QKD thực tế còn phải bảo đảm thiết bị/implementation,
+quản lý khóa, xử lý hậu kỳ và trao đổi cổ điển được xác thực. Xác thực ngăn active attacker giả
+danh khi hai bên trao đổi reconciliation data; bản thân xác thực phải được bootstrapped bằng
+credential đáng tin cậy hoặc secret có trước.
 
-The project's simulator is a seeded classical abstraction of bits and two bases. It models
-intercept-resend choices and independent channel bit flips, but not actual quantum states, detectors,
-optical losses, side channels, finite-key proofs, error correction, or privacy amplification. A
-QBER at or below 0.11 does **not** prove that a key is secure. Its accept/reject label is an
-illustrative teaching result only.
+Code dự án dùng mô hình bit/basis cổ điển có seed, mô phỏng Eve và lỗi lật bit độc lập. Code không
+mô phỏng trạng thái lượng tử, detector, optical loss, side channel, finite-key proof, error
+correction hoặc privacy amplification. QBER <= 0.11 **không** chứng minh khóa an toàn; accept/reject
+chỉ là nhãn minh họa.
 
-## ML-KEM-768 / PQC assumptions and boundaries
+## ML-KEM-768/PQC
 
-ML-KEM-768 is a classical key-encapsulation mechanism standardized in NIST FIPS 203. Its security
-is computational and based on the Module Learning With Errors problem as specified in the
-standard. It is designed to resist known classical and quantum attacks under those assumptions;
-this is not an unconditional guarantee. Correct implementation, parameter selection, random-number
-generation, protocol composition, authentication, and key handling remain necessary.
+ML-KEM-768 là key-encapsulation mechanism cổ điển được chuẩn hóa ở NIST FIPS 203. Cơ sở an toàn
+tính toán dựa trên cấu trúc Module Learning With Errors theo tiêu chuẩn. Thuật toán hướng tới
+kháng tấn công cổ điển/lượng tử đã biết dưới giả định đó, không phải bảo đảm vô điều kiện. Cần
+implementation đúng, random generation phù hợp, protocol composition, authentication và key
+handling.
 
-ML-KEM is not an authentication mechanism by itself. Applications still need authenticated
-identities and an authenticated protocol to resist active man-in-the-middle attacks. The project
-benchmark measures primitive operations, not a complete network handshake or application.
+ML-KEM tự nó không xác thực danh tính endpoint. Ứng dụng vẫn cần identity authentication và
+protocol có xác thực để chống man-in-the-middle. Benchmark dự án đo primitive, không phải handshake
+hoàn chỉnh hoặc application.
 
-## Comparative interpretation
+## So sánh và giới hạn
 
-QKD requires a quantum channel plus a classical channel that is authenticated and suitable
-infrastructure at both endpoints; distance, operating conditions, and integration are deployment
-constraints to assess using external evidence. ML-KEM uses ordinary classical computation and
-communications, and does not require quantum transmission hardware; deployed systems still require
-protocol integration and authentication.
+QKD cần quantum channel cùng classical channel được xác thực và hạ tầng phù hợp tại hai đầu.
+ML-KEM chạy trên tính toán/giao tiếp cổ điển; vẫn phải tích hợp vào protocol đã xác thực. Chi phí,
+khoảng cách, throughput và vận hành cần evidence triển khai cụ thể; repository chưa đo các giá
+trị này.
 
-This repository collects no infrastructure cost, network distance, or throughput measurement.
-Avoid universal statements that one approach is faster, cheaper, or more secure. Keep QBER separate
-from software operation latency. Cite any qualitative claims with the sources in `REFERENCES.md`
-and label assumptions explicitly.
-
-## Sources
-
-See [REFERENCES.md](REFERENCES.md), especially NIST FIPS 203 for ML-KEM and the foundational
-BB84 paper for protocol context. The team's security reviewer should verify cited editions and
-claims before final publication.
+Không khẳng định phương án nào luôn nhanh, rẻ hay an toàn hơn. Giữ QBER tách biệt khỏi software
+operation latency. Gắn nguồn/nhãn cho nhận định trong [REFERENCES.md](REFERENCES.md).

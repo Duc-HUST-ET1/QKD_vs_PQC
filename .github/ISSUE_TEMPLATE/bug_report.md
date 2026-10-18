@@ -1,23 +1,23 @@
 ---
-name: Bug report
-about: Report a reproducible problem in code, data handling, or documentation
+name: Báo lỗi
+about: Báo vấn đề có thể tái hiện trong code, xử lý dữ liệu hoặc tài liệu
 title: "[BUG] "
 labels: bug
 assignees: ""
 ---
 
-## What happened?
+## Đã xảy ra vấn đề gì?
 
-## Steps to reproduce
+## Các bước tái hiện
 
-## Expected behavior
+## Kết quả mong đợi
 
-## Environment
+## Môi trường
 
 - OS:
 - Python:
 - Package / implementation versions:
 
-## Configuration and relevant output
+## Cấu hình và output liên quan
 
-Do not include secrets, private keys, or shared-secret material.
+Không đính kèm bí mật, private key hoặc nội dung shared secret.

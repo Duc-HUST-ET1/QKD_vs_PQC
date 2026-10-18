@@ -1,19 +1,19 @@
 ---
-name: Research task
-about: Propose a bounded research, implementation, or documentation task
+name: Nhiệm vụ nghiên cứu
+about: Đề xuất một nhiệm vụ nghiên cứu, triển khai hoặc tài liệu có phạm vi rõ
 title: "[TASK] "
 labels: task
 assignees: ""
 ---
 
-## Goal
+## Mục tiêu
 
-## Workstream / owner
+## Workstream / người phụ trách
 
-## Acceptance criteria
+## Tiêu chí nghiệm thu
 
-## Dependencies or interface changes
+## Phụ thuộc hoặc thay đổi giao diện
 
-## References and assumptions
+## Tài liệu tham khảo và giả định
 
-## Validation
+## Kiểm tra đã thực hiện

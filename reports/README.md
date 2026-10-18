@@ -1,4 +1,5 @@
-# Reports
+# Báo cáo
 
-Place reviewed report assets here. Generated measurements and figures remain in `data/raw/`,
-`data/processed/`, and `figures/`; do not check in unreviewed generated outputs.
+Đặt tại đây các tài liệu báo cáo đã được nhóm rà soát. CSV raw, bảng dẫn xuất và hình được tạo
+tự động vẫn thuộc `data/raw/`, `data/processed/` và `figures/`; không commit output tự sinh chưa
+được kiểm tra.

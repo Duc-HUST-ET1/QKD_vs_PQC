@@ -1,5 +1,4 @@
-# Example data
+# Dữ liệu ví dụ
 
-This directory is reserved for explicitly labelled illustrative examples. No simulated or
-fabricated result is supplied as if it were an experiment. Actual run outputs belong in
-`data/raw/`.
+Thư mục này chỉ dành cho dữ liệu minh họa có nhãn rõ ràng. Hiện không kèm số liệu mô phỏng/tự
+tạo nào được trình bày như kết quả thực nghiệm. Kết quả chạy thật lưu trong `data/raw/`.
