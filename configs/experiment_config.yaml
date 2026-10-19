@@ -6,7 +6,7 @@ project:
 qkd:
   n_signals: 100000
   channel_error_rate: 0.01
-  eve_probability: 0.0
+  eve_probability: 1.0
   qber_threshold: 0.11
 
 pqc:
