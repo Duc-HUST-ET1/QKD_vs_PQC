@@ -21,8 +21,10 @@ def main() -> int:
         return 1
     print(f"BB84 run saved: {output}")
     print(
-        f"sifted_bits={result.sifted_bits}, error_bits={result.error_bits}, "
-        f"qber={result.qber}, sifted_fraction={result.sifted_fraction:.6f}, "
+        f"received_signals={result.received_signals}, lost_signals={result.lost_signals}, "
+        f"loss_fraction={result.loss_fraction:.6f}, sifted_bits={result.sifted_bits}, "
+        f"error_bits={result.error_bits}, qber={result.qber}, "
+        f"sifted_fraction={result.sifted_fraction:.6f}, "
         f"status={result.illustrative_status}"
     )
     return 0

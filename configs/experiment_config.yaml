@@ -8,6 +8,13 @@ qkd:
   channel_error_rate: 0.01
   eve_probability: 1.0
   qber_threshold: 0.11
+  channel_loss_rate: 0.0
+
+qkd_sweep:
+  repetitions: 10
+  eve_probabilities: [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
+  channel_error_rates: [0.0, 0.01, 0.05, 0.1, 0.2]
+  channel_loss_rates: [0.0, 0.1, 0.3, 0.5, 0.8]
 
 pqc:
   algorithm: "ML-KEM-768"

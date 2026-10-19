@@ -13,6 +13,12 @@ def _valid_config():
             "eve_probability": 0.0,
             "qber_threshold": 0.11,
         },
+        "qkd_sweep": {
+            "repetitions": 2,
+            "eve_probabilities": [0.0, 1.0],
+            "channel_error_rates": [0.0, 0.1],
+            "channel_loss_rates": [0.0, 1.0],
+        },
         "pqc": {
             "algorithm": "ML-KEM-768",
             "warmup_iterations": 0,
@@ -30,7 +36,11 @@ def _valid_config():
     ("section", "key", "value", "error_match"),
     [
         ("qkd", "channel_error_rate", 1.1, "channel_error_rate"),
+        ("qkd", "channel_loss_rate", -0.1, "channel_loss_rate"),
+        ("qkd", "channel_error_rate", float("nan"), "channel_error_rate"),
         ("qkd", "n_signals", 0, "n_signals"),
+        ("qkd_sweep", "repetitions", 0, "repetitions"),
+        ("qkd_sweep", "eve_probabilities", [], "non-empty"),
         ("pqc", "measured_iterations", 0, "measured_iterations"),
         ("pqc", "algorithm", "Kyber768", "ML-KEM-768"),
     ],
@@ -52,5 +62,7 @@ def test_default_configuration_loads():
 
     assert config.project.random_seed == 42
     assert config.qkd.n_signals == 100000
+    assert config.qkd.channel_loss_rate == 0.0
+    assert config.qkd_sweep.repetitions == 10
     assert config.pqc.algorithm == "ML-KEM-768"
     assert config.pqc.measured_iterations > 0

@@ -20,8 +20,9 @@ extra `mlkem` có `pqcrypto`. Cài đặt editable theo README/USER_GUIDE.
 | API | Input | Output / lỗi |
 |---|---|---|
 | `load_config(path=None) -> ExperimentConfig` | YAML (mặc định `configs/experiment_config.yaml`) | Dataclass đã xác thực; `ConfigurationError` nếu file/schema/giá trị sai |
-| `simulate_bb84(config: QKDConfig, seed: int \| None = None) -> BB84Result` | Số tín hiệu, 3 xác suất/ngưỡng, seed bắt buộc | Run-level result; `ValueError` nếu tham số/seed sai |
+| `simulate_bb84(config: QKDConfig, seed: int \| None = None) -> BB84Result` | Số tín hiệu, Eve/noise/loss/ngưỡng, seed bắt buộc | Run-level result; `ValueError` nếu tham số/seed sai |
 | `write_bb84_result(result, output_dir) -> Path` | Result và thư mục | CSV duy nhất `qkd_*.csv`; báo lỗi nếu trùng tên/I/O |
+| `run_qkd_experiment(config: ExperimentConfig) -> list[Path]` | Cấu hình BB84 cùng các sweep lặp | Ghi CSV per-run cho Eve, noise và loss sweeps |
 | `detect_mlkem_implementation() -> MLKEMImplementation \| None` | Không tham số | Chỉ trả adapter nếu import, version, API và self-test shared secret đúng |
 | `run_mlkem_benchmark(config: PQCConfig, output_dir) -> BenchmarkResults` | `ML-KEM-768`, warmup, repetitions | CSV per-sample `mlkem_*.csv`; `MLKEMUnavailableError` nếu backend vắng/sai |
 | `analyze_tradeoffs(qkd_metrics=None, pqc_metrics=None) -> list[TradeoffItem]` | Mapping metric tùy chọn | Nhận định có nhãn evidence; `ValueError` với measurement không hợp lệ |
@@ -38,7 +39,9 @@ quan trọng khi gọi API trực tiếp.
 |---|---|---|
 | `project` | `name`, `random_seed` | Tên không rỗng; seed số nguyên không âm |
 | `qkd` | `n_signals` | Số nguyên dương |
-| `qkd` | `channel_error_rate`, `eve_probability`, `qber_threshold` | Số trong [0, 1] |
+| `qkd` | `channel_error_rate`, `eve_probability`, `channel_loss_rate`, `qber_threshold` | Số trong [0, 1] |
+| `qkd_sweep` | `repetitions` | Số nguyên dương; mặc định 10 |
+| `qkd_sweep` | `eve_probabilities`, `channel_error_rates`, `channel_loss_rates` | Danh sách không rỗng; từng xác suất trong [0, 1] |
 | `pqc` | `algorithm` | Bắt buộc chính xác `ML-KEM-768` |
 | `pqc` | `warmup_iterations` | Số nguyên không âm |
 | `pqc` | `measured_iterations` | Số nguyên dương |
@@ -52,12 +55,16 @@ hiện tại là package `pqcrypto` với module `pqcrypto.kem.ml_kem_768`; adap
 
 ### BB84: một dòng cho mỗi lần chạy
 
-Header theo đúng thứ tự: `run_id, timestamp_utc, seed, n_signals, channel_error_rate,
-eve_probability, qber_threshold, sifted_bits, error_bits, qber, sifted_fraction,
-illustrative_status, simulator_version, python_version, platform`.
+Header bắt đầu bằng các cột ổn định: `run_id, timestamp_utc, seed, n_signals,
+channel_error_rate, eve_probability, qber_threshold, sifted_bits, error_bits, qber,
+sifted_fraction, illustrative_status, simulator_version, python_version, platform`; bản hiện tại
+nối thêm `channel_loss_rate, received_signals, lost_signals, loss_fraction`.
 
 `qber` là tỷ lệ [0, 1], để trống nếu không có sifted bit; các xác suất/fraction nằm trong [0, 1].
-Kết quả không chứa bit khóa. Status `illustrative_accept`/`illustrative_reject` chỉ minh họa.
+`sifted_fraction=sifted_bits/n_signals`; `loss_fraction=lost_signals/n_signals`. Kết quả không
+chứa bit khóa. Status `illustrative_accept`/`illustrative_reject` chỉ minh họa. Consumer cũ không
+đọc các cột mới vẫn đọc được phần schema cũ; CSV lịch sử thiếu loss được xử lý như loss 0 trong
+plotting.
 
 ### ML-KEM: một dòng cho mỗi mẫu timed operation
 

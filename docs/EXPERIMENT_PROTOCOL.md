@@ -6,8 +6,10 @@ Config mặc định là `configs/experiment_config.yaml`; CLI nhận `--config 
 đối tính từ project root). Chạy từ root sau khi cài package editable. Giá trị mặc định:
 
 - `project.random_seed=42`
-- BB84: `n_signals=100000`, `channel_error_rate=0.01`, `eve_probability=0.0`,
-  `qber_threshold=0.11`
+- BB84 một lần: `n_signals=100000`, `channel_error_rate=0.01`, `eve_probability=0.0`,
+  `channel_loss_rate=0.0`, `qber_threshold=0.11`
+- BB84 sweeps: 10 independent repetitions per setting; Eve `[0, 0.1, 0.25, 0.5, 0.75, 1]`,
+  channel noise `[0, 0.01, 0.05, 0.1, 0.2]`, loss `[0, 0.1, 0.3, 0.5, 0.8]`
 - PQC: `algorithm=ML-KEM-768`, `warmup_iterations=50`, `measured_iterations=1000`
 - Output: `data/raw`, `data/processed`, `figures`
 
@@ -28,24 +30,58 @@ ghi `seed` có thể None, hàm hiện yêu cầu seed không âm; CLI truyền 
 Với từng tín hiệu, code thực hiện theo thứ tự:
 
 1. Alice sinh bit ngẫu nhiên và basis nhị phân ngẫu nhiên.
-2. Với xác suất `eve_probability`, Eve chặn tín hiệu, chọn basis ngẫu nhiên. Nếu basis khớp,
-   measurement bit bằng Alice; nếu lệch, bit là ngẫu nhiên. Eve gửi lại bit và basis vừa đo.
-3. Với xác suất `channel_error_rate`, channel lật transmitted bit.
-4. Bob chọn basis ngẫu nhiên; nếu trùng transmitted basis, kết quả bằng bit truyền, ngược lại
-   code sinh bit đo ngẫu nhiên.
-5. Chỉ vị trí Bob basis trùng Alice basis được sift. Mã đếm sifted bits và mismatch.
+2. Với xác suất `channel_loss_rate`, tín hiệu bị mất và không tới Bob; tín hiệu mất không được
+   tính là lỗi. Đây là loss Bernoulli độc lập, không phải mô hình optical channel.
+3. Với xác suất `eve_probability`, Eve chặn từng tín hiệu còn lại, chọn basis ngẫu nhiên độc lập,
+   đo: basis trùng Alice thì bit đo bằng bit Alice; basis khác thì kết quả bit là ngẫu nhiên. Eve
+   gửi trạng thái bit/basis vừa đo lại.
+4. Với xác suất `channel_error_rate`, channel lật bit logic được truyền một lần, độc lập với
+   loss và Eve.
+5. Bob chọn basis ngẫu nhiên; nếu trùng basis truyền, nhận bit truyền; nếu khác, kết quả đo là
+   ngẫu nhiên.
+6. Chỉ các tín hiệu đã đến Bob có basis Bob trùng basis Alice mới được sift. Mã đếm số đã nhận,
+   sifted bits và mismatch.
 
 `qber = error_bits / sifted_bits`; `sifted_fraction = sifted_bits / n_signals`. Nếu không có bit
 được sift, QBER là `None`, CSV để rỗng, và status là `illustrative_reject`. Các status còn lại
 dựa vào `qber > qber_threshold`; nhãn `illustrative_accept` không phải kết luận an toàn.
 
-Đây là mô hình cổ điển của lựa chọn bit/basis, không phải trạng thái lượng tử. Không có phần cứng,
-optical loss, device side-channel, error correction, privacy amplification hay finite-key proof.
+`loss_fraction = lost_signals / n_signals`. Khi loss độc lập với basis/bit, giá trị kỳ vọng của
+sifted fraction là xấp xỉ `(1 - channel_loss_rate) / 2`. Trong mô hình độc lập hiện tại, kỳ vọng
+QBER trên sifted bits là `e + (1 - 2e) * p_eve / 4`, với `e=channel_error_rate`; riêng noise
+không Eve có QBER kỳ vọng `e`, và Eve intercept-resend toàn phần không noise có QBER kỳ vọng 25%.
+Đây là kỳ vọng lý thuyết, không phải giá trị áp đặt lên dữ liệu.
+
+Đây là mô hình cổ điển của lựa chọn bit/basis, không phải trạng thái lượng tử. `channel_loss_rate`
+chỉ là phép thử Bernoulli ở mức logic, không mô phỏng suy hao quang học hoặc detector. Mô hình
+không có phần cứng, device side-channel, error correction, privacy amplification hay finite-key proof.
 Ngưỡng 11% là giá trị dạy học tùy cấu hình, không phải ngưỡng bảo đảm bảo mật tổng quát. Thí
 nghiệm cần QKD thực tế phải có authenticated classical channel và quy trình hậu xử lý phù hợp.
 
 Lệnh: `python scripts/run_qkd.py [--config PATH]`. Đầu ra là một row trong
-`data/raw/qkd_*.csv`; output không bao gồm các bit khóa.
+`data/raw/qkd_*.csv`; output không bao gồm các bit khóa. Mỗi file ghi thêm loss rate, số tín hiệu
+đã nhận/mất và loss fraction sau các cột BB84 cũ.
+
+## Experiment A2 — BB84 repeated sweeps
+
+Lệnh `python scripts/run_qkd_experiment.py [--config PATH]` chạy ba sweep độc lập: Eve (noise/loss
+đặt 0), channel noise (Eve/loss đặt 0), và channel loss (Eve/noise đặt 0). Mỗi setting nhận số lần
+lặp tại `qkd_sweep.repetitions`. Seed bắt đầu từ `project.random_seed`, sau đó được tăng duy nhất
+cho từng trial; mọi seed và tham số được ghi trong CSV per-run. Những tổ hợp trùng nhau như
+baseline `[0,0,0]` chỉ chạy một lần cho mỗi repetition. Do đó cùng config và code tạo lại cùng các
+thống kê, nhưng run ID/timestamp mới.
+
+`python scripts/run_analysis.py` tổng hợp các run CSV thành mean và sample standard deviation
+(error bar ±1 SD) tại từng xác suất, lọc để các yếu tố khác ngoài sweep bằng 0. Nó tạo QBER theo
+Eve, QBER theo channel noise, sifted fraction theo noise và sifted fraction theo loss. Các output
+sinh tự động ở `data/raw/`, `data/processed/`, `figures/` bị `.gitignore` bỏ qua theo policy nhóm;
+không commit nếu chưa được nhóm duyệt. Nhiều file có cùng seed, cấu hình và phiên bản mô phỏng chỉ
+được tính một lần; chạy lại cùng seed không tạo thêm một mẫu thống kê độc lập.
+Comparison CSV không gộp mean QBER/sifting/loss qua các cấu hình khác nhau; với dữ liệu nhiều setting,
+nó ghi `measurement_scope` và `setting_count`, còn số liệu theo điều kiện được xem trong từng biểu đồ
+và run CSV.
+Kết quả batch đã quan sát được và các giới hạn được ghi tại
+[reports/QKD_BB84_EXPERIMENT.md](../reports/QKD_BB84_EXPERIMENT.md); báo cáo đang chờ review.
 
 ## Experiment B — ML-KEM-768
 
@@ -85,7 +121,8 @@ không kết luận benchmark primitive chứng minh PQC nói chung nhanh hơn Q
 ## Phân tích và tái lập hình
 
 - `python scripts/run_analysis.py [--config PATH]` tìm tất cả `qkd_*.csv`, `mlkem_*.csv` trong
-  thư mục raw được cấu hình.
+  thư mục raw được cấu hình; `--qkd-run-prefix PREFIX` chỉ giới hạn CSV QKD theo prefix run ID
+  nhưng vẫn giữ cách phân tích tương thích.
 - `python scripts/run_all.py [--config PATH]` chạy BB84, thử PQC tùy chọn, sau đó chỉ phân tích
   CSV từ chính lượt chạy hiện tại.
 - Figures được ghi trong `figures/` với tên cố định; chạy lại có thể ghi đè PNG.

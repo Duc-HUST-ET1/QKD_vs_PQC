@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import logging
+import math
 import random
 from pathlib import Path
 
@@ -28,6 +29,10 @@ BB84_CSV_FIELDS = (
     "simulator_version",
     "python_version",
     "platform",
+    "channel_loss_rate",
+    "received_signals",
+    "lost_signals",
+    "loss_fraction",
 )
 
 
@@ -50,6 +55,10 @@ class BB84Result:
     simulator_version: str
     python_version: str
     platform: str
+    channel_loss_rate: float
+    received_signals: int
+    lost_signals: int
+    loss_fraction: float
 
     def as_csv_row(self) -> dict[str, object]:
         """Serialize the run result using the documented CSV field names."""
@@ -73,18 +82,25 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
         ("channel_error_rate", config.channel_error_rate),
         ("eve_probability", config.eve_probability),
         ("qber_threshold", config.qber_threshold),
+        ("channel_loss_rate", config.channel_loss_rate),
     ):
         if (isinstance(probability, bool) or not isinstance(probability, (int, float))
+                or not math.isfinite(probability)
                 or not 0.0 <= probability <= 1.0):
             raise ValueError(f"{name} must be between 0 and 1 inclusive.")
 
     rng = random.Random(seed)
+    received_signals = 0
     sifted_bits = 0
     error_bits = 0
 
     for _ in range(config.n_signals):
         alice_bit = rng.randrange(2)
         alice_basis = rng.randrange(2)
+
+        if rng.random() < config.channel_loss_rate:
+            continue
+        received_signals += 1
 
         transmitted_bit = alice_bit
         transmitted_basis = alice_basis
@@ -107,6 +123,8 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
 
     qber = error_bits / sifted_bits if sifted_bits else None
     sifted_fraction = sifted_bits / config.n_signals
+    lost_signals = config.n_signals - received_signals
+    loss_fraction = lost_signals / config.n_signals
     illustrative_status = (
         "illustrative_reject"
         if qber is None or qber > config.qber_threshold
@@ -128,6 +146,10 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
         illustrative_status=illustrative_status,
         simulator_version=__version__,
         **runtime_metadata(),
+        channel_loss_rate=config.channel_loss_rate,
+        received_signals=received_signals,
+        lost_signals=lost_signals,
+        loss_fraction=loss_fraction,
     )
     logger.info(
         "BB84 simulation complete: %s, sifted=%d/%d, QBER=%s, status=%s",

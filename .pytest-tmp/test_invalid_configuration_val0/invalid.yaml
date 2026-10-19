@@ -1,0 +1,16 @@
+output:
+  figures_dir: figures
+  processed_data_dir: data/processed
+  raw_data_dir: data/raw
+pqc:
+  algorithm: ML-KEM-768
+  measured_iterations: 1
+  warmup_iterations: 0
+project:
+  name: test
+  random_seed: 1
+qkd:
+  channel_error_rate: 1.1
+  eve_probability: 0.0
+  n_signals: 10
+  qber_threshold: 0.11

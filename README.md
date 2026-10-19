@@ -8,9 +8,9 @@ lập khóa, và yêu cầu hạ tầng ảnh hưởng ra sao đến tính phù 
 
 ## Dự án làm gì?
 
-- **QKD/BB84:** mô phỏng cổ điển các bit, cơ sở đo, Eve intercept-resend, lỗi lật bit trên kênh,
-  sifting, QBER và tỷ lệ bit được giữ lại. Đây **không phải** mô phỏng trạng thái lượng tử hoặc
-  hệ thống QKD an toàn để triển khai.
+- **QKD/BB84:** mô phỏng cổ điển các bit, cơ sở đo, Eve intercept-resend, lỗi lật bit, mất tín
+  hiệu Bernoulli, sifting, QBER và tỷ lệ bit được giữ lại. Đây **không phải** mô phỏng trạng thái
+  lượng tử hoặc hệ thống QKD an toàn để triển khai.
 - **PQC/ML-KEM-768:** nếu có đúng implementation tương thích, đo riêng key generation,
   encapsulation và decapsulation; kiểm tra hai shared secret trùng nhau. Không tự thay bằng
   thuật toán khác.
@@ -35,6 +35,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m pytest
 python scripts/run_qkd.py
+python scripts/run_qkd_experiment.py
 python scripts/run_all.py
 ```
 
@@ -47,6 +48,7 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 python -m pytest
 python scripts/run_qkd.py
+python scripts/run_qkd_experiment.py
 python scripts/run_all.py
 ```
 
@@ -81,6 +83,7 @@ Mọi script cần chạy từ thư mục gốc sau khi cài package editable. C
 | Lệnh | Mục đích | Đầu ra hiện tại |
 |---|---|---|
 | `python scripts/run_qkd.py` | Chạy BB84 với seed trong config | Một CSV duy nhất `data/raw/qkd_*.csv` |
+| `python scripts/run_qkd_experiment.py` | Chạy repeated sweeps cho Eve, noise và loss theo config | CSV riêng cho mỗi trial trong `data/raw/` |
 | `python scripts/run_pqc_benchmark.py` | Chạy đúng ML-KEM-768 nếu adapter xác minh được implementation | Một CSV `data/raw/mlkem_*.csv`; mã thoát 2 nếu không hỗ trợ |
 | `python scripts/run_analysis.py` | Đọc mọi CSV `qkd_*.csv` và `mlkem_*.csv` trong thư mục raw | PNG trong `figures/`, bảng trong `data/processed/`; không có CSV thì thông báo bỏ qua |
 | `python scripts/run_all.py` | Chạy BB84, thử benchmark PQC tùy chọn, phân tích đầu ra của lần chạy này | Trạng thái từng bước; mã thoát khác 0 khi bước bắt buộc hoặc phân tích lỗi |
@@ -90,6 +93,12 @@ Các script chỉ hỗ trợ cờ `--config`; hiện không có cờ CLI để t
 đường dẫn output. Hãy thay đổi file YAML (hoặc cung cấp file cấu hình khác). Đường dẫn cấu hình
 tương đối được phân giải từ thư mục gốc dự án. Xem [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
 để biết chi tiết giao diện Python và CSV.
+
+`run_qkd.py` tạo một run cho cấu hình đơn. `run_qkd_experiment.py` chạy các sweep nhiều lần để
+đánh giá QBER theo xác suất Eve/noise và tỷ lệ sifting theo loss; chỉnh số lần lặp và các danh sách
+xác suất trong `qkd_sweep` của YAML. Chạy `python scripts/run_analysis.py` sau đó để vẽ trung bình
+và độ lệch chuẩn từ các CSV thật. Theo policy nhóm, CSV raw/processed và PNG tự sinh bị Git bỏ qua;
+chỉ đưa chúng lên GitHub khi nhóm duyệt ngoại lệ.
 
 ## Đầu ra và trạng thái
 
@@ -121,6 +130,7 @@ OpenSSL.
 - [Phạm vi dự án](docs/PROJECT_SCOPE.md)
 - [Mô hình đe dọa](docs/THREAT_MODEL.md)
 - [Tài liệu tham khảo](docs/REFERENCES.md)
+- [Báo cáo thí nghiệm BB84](reports/QKD_BB84_EXPERIMENT.md) (đang chờ review)
 
 ## Thứ tự đọc đề xuất
 

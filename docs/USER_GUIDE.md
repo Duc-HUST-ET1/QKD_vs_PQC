@@ -93,12 +93,16 @@ khác thay thế ML-KEM-768.
 Đọc [experiment_config.yaml](../configs/experiment_config.yaml). Giá trị mặc định hiện có:
 
 - seed `42`; số tín hiệu BB84 `100000`;
-- `channel_error_rate=0.01`, `eve_probability=0.0`, ngưỡng minh họa `0.11`;
+- `channel_error_rate=0.01`, `eve_probability=0.0`, `channel_loss_rate=0.0`, ngưỡng minh họa
+  `0.11`;
+- sweep: 10 repetitions, Eve `[0, 0.1, 0.25, 0.5, 0.75, 1]`, noise `[0, 0.01, 0.05, 0.1, 0.2]`,
+  loss `[0, 0.1, 0.3, 0.5, 0.8]`;
 - ML-KEM `warmup_iterations=50`, `measured_iterations=1000`;
 - output `data/raw`, `data/processed`, `figures`.
 
-`load_config()` xác thực section, số nguyên, xác suất [0, 1], thuật toán phải chính xác
-`ML-KEM-768`, output directory phải là đường dẫn tương đối. Sửa bản sao YAML hoặc tạo YAML khác;
+`load_config()` xác thực section, số nguyên, xác suất [0, 1] và danh sách sweep không rỗng; thuật
+toán phải chính xác `ML-KEM-768`, output directory phải là đường dẫn tương đối. Cấu hình cũ thiếu
+`qkd.channel_loss_rate` hoặc section `qkd_sweep` được đọc theo giá trị mặc định. Sửa bản sao YAML hoặc tạo YAML khác;
 script hỗ trợ `--config <đường-dẫn>`, đường dẫn tương đối tính từ project root. Không có cờ CLI
 riêng cho từng thông số.
 
@@ -122,6 +126,21 @@ fraction và nhãn minh họa. QBER không phải bằng chứng kết luận an
 Nếu import lỗi, kiểm tra đã chạy `pip install -e ".[dev]"` trong environment đang hoạt động và
 đang ở project root. Nếu config sai, đọc thông báo validation; file raw đã tồn tại không bị ghi
 đè.
+
+## 6.1. Chạy repeated sweeps BB84
+
+```powershell
+python scripts/run_qkd_experiment.py
+```
+
+```sh
+python scripts/run_qkd_experiment.py
+```
+
+Lệnh chạy ba sweep độc lập và ghi một CSV cho mỗi trial với seed/setting được lưu trong file.
+Eve sweep đặt noise/loss bằng 0; noise sweep đặt Eve/loss bằng 0; loss sweep đặt Eve/noise bằng 0.
+Mặc định có 10 lần lặp mỗi setting. Số tín hiệu mỗi trial lấy từ `qkd.n_signals`. Đây là mô phỏng
+xác suất giáo dục, không phải thiết bị QKD hoặc khóa bí mật sau xử lý hậu kỳ.
 
 ## 7. Kiểm tra/chạy benchmark ML-KEM-768
 
@@ -167,7 +186,11 @@ buộc, bỏ qua hàng có giá trị rỗng/không hữu hạn/không hợp l�
 hợp lệ. PNG được lưu trong `figures/`; tên hình là cố định nên có thể bị ghi đè khi chạy lại.
 Bảng định tính và các metric tổng hợp (nếu có) được ghi thành CSV mới trong
 `data/processed/`. Nếu không có file raw nào, chương trình thông báo bỏ qua và kết thúc thành
-công; không sinh dữ liệu giả.
+công; không sinh dữ liệu giả. Với repeated sweeps, QBER/sifted fraction được tổng hợp theo xác
+suất (trung bình ±1 độ lệch chuẩn mẫu), chỉ dùng các run có những điều kiện còn lại bằng 0.
+Để phân tích đúng một cohort theo run ID, truyền `--qkd-run-prefix`, ví dụ:
+`python scripts/run_analysis.py --qkd-run-prefix qkd_20261019T1509`. Nếu không truyền cờ, mặc
+định vẫn quét mọi CSV raw.
 
 ## 9. Chạy pipeline tích hợp
 
