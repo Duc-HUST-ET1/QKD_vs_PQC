@@ -5,7 +5,7 @@ import logging
 import math
 from pathlib import Path
 import statistics
-from typing import Iterable, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from qkd_pqc.common.csv_utils import write_csv_exclusive
 from qkd_pqc.common.metadata import create_run_id
@@ -46,6 +46,36 @@ def _read_csv_files(
     return rows
 
 
+def _unique_qkd_runs(rows: Sequence[Mapping[str, str]]) -> list[Mapping[str, str]]:
+    """Do not treat repeated exports of the same deterministic seeded run as replicates."""
+    unique_rows: list[Mapping[str, str]] = []
+    seen: set[tuple[str, ...]] = set()
+    identity_columns = (
+        "seed",
+        "n_signals",
+        "channel_error_rate",
+        "eve_probability",
+        "qber_threshold",
+        "channel_loss_rate",
+        "simulator_version",
+    )
+    for row in rows:
+        identity_values = tuple(row.get(column, "") for column in identity_columns)
+        if not identity_values[0]:
+            unique_rows.append(row)
+            continue
+        if identity_values in seen:
+            logger.warning(
+                "Ignoring duplicate seeded BB84 run (seed=%s, settings=%s).",
+                identity_values[0],
+                identity_values[1:-1],
+            )
+            continue
+        seen.add(identity_values)
+        unique_rows.append(row)
+    return unique_rows
+
+
 def _number(row: Mapping[str, str], column: str, row_number: int) -> float | None:
     value = row.get(column, "")
     if value is None or not value.strip():
@@ -82,24 +112,54 @@ def _valid_pair(
     return x_value, y_value
 
 
-def _save_scatter(
-    points: Iterable[tuple[float, float]],
+def _save_summary_plot(
+    rows: Sequence[Mapping[str, str]],
+    x_column: str,
+    y_column: str,
+    required_zero_columns: Sequence[str],
     x_label: str,
     y_label: str,
     title: str,
     path: Path,
 ) -> bool:
-    values = list(points)
-    if not values:
+    groups: dict[float, list[float]] = {}
+    for index, row in enumerate(rows, start=2):
+        controls_are_zero = True
+        for column in required_zero_columns:
+            raw_value = row.get(column, "0")
+            value = _number(row, column, index) if raw_value else 0.0
+            if value is None or value != 0.0:
+                controls_are_zero = False
+                break
+        if not controls_are_zero:
+            continue
+        pair = _valid_pair(row, x_column, y_column, index)
+        if pair is not None:
+            x_value, y_value = pair
+            groups.setdefault(x_value, []).append(y_value)
+
+    if not groups:
         logger.warning("No valid measurements available for %s; figure not created.", title)
         return False
     import matplotlib.pyplot as plt
 
     figure, axis = plt.subplots()
-    axis.scatter([point[0] for point in values], [point[1] for point in values])
+    x_values = sorted(groups)
+    means = [statistics.fmean(groups[value]) for value in x_values]
+    deviations = [
+        statistics.stdev(groups[value]) if len(groups[value]) > 1 else 0.0
+        for value in x_values
+    ]
+    group_sizes = {len(groups[value]) for value in x_values}
+    sample_label = (
+        f"n={next(iter(group_sizes))} runs/setting"
+        if len(group_sizes) == 1
+        else "n varies by setting"
+    )
+    axis.errorbar(x_values, means, yerr=deviations, fmt="o-", capsize=3)
     axis.set_xlabel(x_label)
     axis.set_ylabel(y_label)
-    axis.set_title(title)
+    axis.set_title(f"{title} (mean ± 1 SD; {sample_label})")
     axis.grid(True, alpha=0.3)
     figure.tight_layout()
     figure.savefig(path, dpi=150)
@@ -110,18 +170,42 @@ def _save_scatter(
 def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
     qbers: list[float] = []
     fractions: list[float] = []
+    loss_fractions: list[float] = []
+    settings: set[tuple[str, ...]] = set()
     for index, row in enumerate(rows, start=2):
+        settings.add(
+            (
+                row.get("n_signals", ""),
+                row.get("channel_error_rate", ""),
+                row.get("eve_probability", ""),
+                row.get("channel_loss_rate", "") or "0",
+                row.get("qber_threshold", ""),
+                row.get("simulator_version", ""),
+            )
+        )
         qber = _number(row, "qber", index)
         fraction = _number(row, "sifted_fraction", index)
         if qber is not None and 0.0 <= qber <= 1.0:
             qbers.append(qber)
         if fraction is not None and 0.0 <= fraction <= 1.0:
             fractions.append(fraction)
+        loss_fraction = _number(row, "loss_fraction", index)
+        if loss_fraction is not None and 0.0 <= loss_fraction <= 1.0:
+            loss_fractions.append(loss_fraction)
     metrics: dict[str, str] = {"valid_run_rows": str(len(rows))}
+    if len(settings) > 1:
+        logger.info(
+            "QKD CSVs contain multiple configurations; omitting cross-setting metric averages."
+        )
+        metrics["measurement_scope"] = "multiple_settings; consult per-setting plots"
+        metrics["setting_count"] = str(len(settings))
+        return metrics
     if qbers:
         metrics["mean_qber"] = f"{statistics.fmean(qbers):.8f}"
     if fractions:
         metrics["mean_sifted_fraction"] = f"{statistics.fmean(fractions):.8f}"
+    if loss_fractions:
+        metrics["mean_loss_fraction"] = f"{statistics.fmean(loss_fractions):.8f}"
     return metrics
 
 
@@ -181,7 +265,10 @@ def create_plots(
         logger.info("No experiment CSV files supplied; analysis skipped.")
         return []
 
-    qkd_rows = _read_csv_files(qkd_paths, QKD_REQUIRED_COLUMNS) if qkd_paths else []
+    qkd_rows = (
+        _unique_qkd_runs(_read_csv_files(qkd_paths, QKD_REQUIRED_COLUMNS))
+        if qkd_paths else []
+    )
     pqc_rows = _read_csv_files(pqc_paths, PQC_REQUIRED_COLUMNS) if pqc_paths else []
     figures_path = Path(figures_dir) if figures_dir else resolve_project_path("figures")
     processed_path = (
@@ -194,23 +281,36 @@ def create_plots(
 
     if qkd_rows:
         series = (
-            ("eve_probability", "qber", "QBER vs Eve intercept probability",
-             "Eve intercept probability", "QBER", "qber_vs_eve_probability.png"),
-            ("channel_error_rate", "qber", "QBER vs channel bit-flip probability",
-             "Channel bit-flip probability", "QBER", "qber_vs_channel_error_rate.png"),
-            ("channel_error_rate", "sifted_fraction",
-             "Sifted-bit fraction vs channel bit-flip probability",
-             "Channel bit-flip probability", "Sifted-bit fraction",
-             "sifted_fraction_vs_channel_error_rate.png"),
+            (
+                "eve_probability", "qber", ("channel_error_rate", "channel_loss_rate"),
+                "Eve intercept probability", "Mean QBER",
+                "QBER vs Eve probability (noise=0, loss=0)",
+                "qber_vs_eve_probability.png",
+            ),
+            (
+                "channel_error_rate", "qber", ("eve_probability", "channel_loss_rate"),
+                "Channel bit-flip probability", "Mean QBER",
+                "QBER vs channel noise (Eve=0, loss=0)",
+                "qber_vs_channel_error_rate.png",
+            ),
+            (
+                "channel_error_rate", "sifted_fraction", ("eve_probability", "channel_loss_rate"),
+                "Channel bit-flip probability", "Mean sifted fraction",
+                "Sifted fraction vs channel noise (Eve=0, loss=0)",
+                "sifted_fraction_vs_channel_error_rate.png",
+            ),
+            (
+                "channel_loss_rate", "sifted_fraction", ("eve_probability", "channel_error_rate"),
+                "Channel loss probability", "Mean sifted fraction",
+                "Sifted fraction vs channel loss (Eve=0, noise=0)",
+                "sifted_fraction_vs_channel_loss_rate.png",
+            ),
         )
-        for x_column, y_column, title, x_label, y_label, filename in series:
-            points = (
-                pair
-                for index, row in enumerate(qkd_rows, start=2)
-                if (pair := _valid_pair(row, x_column, y_column, index)) is not None
-            )
+        for x_column, y_column, controls, x_label, y_label, title, filename in series:
             path = figures_path / filename
-            if _save_scatter(points, x_label, y_label, title, path):
+            if _save_summary_plot(
+                qkd_rows, x_column, y_column, controls, x_label, y_label, title, path
+            ):
                 created.append(path)
 
     if pqc_rows:

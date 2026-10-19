@@ -1,6 +1,7 @@
 """YAML configuration loading and validation."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import math
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,15 @@ class QKDConfig:
     channel_error_rate: float
     eve_probability: float
     qber_threshold: float
+    channel_loss_rate: float = 0.0
+
+
+@dataclass(frozen=True)
+class QKDSweepConfig:
+    repetitions: int = 10
+    eve_probabilities: tuple[float, ...] = (0.0, 0.1, 0.25, 0.5, 0.75, 1.0)
+    channel_error_rates: tuple[float, ...] = (0.0, 0.01, 0.05, 0.1, 0.2)
+    channel_loss_rates: tuple[float, ...] = (0.0, 0.1, 0.3, 0.5, 0.8)
 
 
 @dataclass(frozen=True)
@@ -47,6 +57,7 @@ class ExperimentConfig:
     qkd: QKDConfig
     pqc: PQCConfig
     output: OutputConfig
+    qkd_sweep: QKDSweepConfig = field(default_factory=QKDSweepConfig)
 
 
 def _mapping(value: Any, section: str) -> dict[str, Any]:
@@ -69,9 +80,16 @@ def _probability(value: Any, name: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ConfigurationError(f"'{name}' must be a number between 0 and 1.")
     result = float(value)
-    if not 0.0 <= result <= 1.0:
+    if not math.isfinite(result) or not 0.0 <= result <= 1.0:
         raise ConfigurationError(f"'{name}' must be between 0 and 1 inclusive.")
     return result
+
+
+def _probability_sequence(value: Any, name: str) -> tuple[float, ...]:
+    if not isinstance(value, list) or not value:
+        raise ConfigurationError(f"'{name}' must be a non-empty list of probabilities.")
+    return tuple(_probability(item, f"{name}[{index}]")
+                 for index, item in enumerate(value))
 
 
 def _relative_output_path(value: Any, name: str) -> Path:
@@ -89,6 +107,8 @@ def _from_mapping(raw: Any) -> ExperimentConfig:
     qkd = _mapping(root.get("qkd"), "qkd")
     pqc = _mapping(root.get("pqc"), "pqc")
     output = _mapping(root.get("output"), "output")
+    qkd_sweep = root.get("qkd_sweep", {})
+    qkd_sweep = _mapping(qkd_sweep, "qkd_sweep")
 
     name = project.get("name")
     if not isinstance(name, str) or not name.strip():
@@ -110,6 +130,8 @@ def _from_mapping(raw: Any) -> ExperimentConfig:
                                              "qkd.channel_error_rate"),
             eve_probability=_probability(qkd.get("eve_probability"), "qkd.eve_probability"),
             qber_threshold=_probability(qkd.get("qber_threshold"), "qkd.qber_threshold"),
+            channel_loss_rate=_probability(qkd.get("channel_loss_rate", 0.0),
+                                           "qkd.channel_loss_rate"),
         ),
         pqc=PQCConfig(
             algorithm=algorithm,
@@ -125,6 +147,22 @@ def _from_mapping(raw: Any) -> ExperimentConfig:
                                                      "output.processed_data_dir"),
             figures_dir=_relative_output_path(output.get("figures_dir"),
                                               "output.figures_dir"),
+        ),
+        qkd_sweep=QKDSweepConfig(
+            repetitions=_positive_integer(qkd_sweep.get("repetitions", 10),
+                                          "qkd_sweep.repetitions"),
+            eve_probabilities=_probability_sequence(
+                qkd_sweep.get("eve_probabilities", [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]),
+                "qkd_sweep.eve_probabilities",
+            ),
+            channel_error_rates=_probability_sequence(
+                qkd_sweep.get("channel_error_rates", [0.0, 0.01, 0.05, 0.1, 0.2]),
+                "qkd_sweep.channel_error_rates",
+            ),
+            channel_loss_rates=_probability_sequence(
+                qkd_sweep.get("channel_loss_rates", [0.0, 0.1, 0.3, 0.5, 0.8]),
+                "qkd_sweep.channel_loss_rates",
+            ),
         ),
     )
 

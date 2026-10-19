@@ -10,12 +10,21 @@ from qkd_pqc.config import load_config
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", help="YAML configuration path (relative to project root)")
+    parser.add_argument(
+        "--qkd-run-prefix",
+        help="only analyze QKD CSV files whose run_id starts with this prefix",
+    )
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     try:
         config = load_config(args.config)
         raw_dir = config.output.raw_data_dir
         qkd_files = sorted(raw_dir.glob("qkd_*.csv"))
+        if args.qkd_run_prefix:
+            qkd_files = [
+                path for path in qkd_files
+                if path.stem.startswith(args.qkd_run_prefix)
+            ]
         pqc_files = sorted(raw_dir.glob("mlkem_*.csv"))
         if not qkd_files and not pqc_files:
             print(f"No experiment CSV files found in {raw_dir}; analysis skipped.")

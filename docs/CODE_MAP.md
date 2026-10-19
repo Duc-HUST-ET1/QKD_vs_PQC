@@ -14,6 +14,7 @@ scripts/run_all.py
 scripts/run_analysis.py
 scripts/run_pqc_benchmark.py
 scripts/run_qkd.py
+scripts/run_qkd_experiment.py
 src/qkd_pqc/
   analysis/plotting.py
   common/csv_utils.py
@@ -22,8 +23,10 @@ src/qkd_pqc/
   paths.py
   pqc/mlkem_benchmark.py
   qkd/bb84_simulator.py
+  qkd/experiment.py
   system/tradeoff_analysis.py
 tests/test_bb84.py
+tests/test_qkd_experiment.py
 tests/test_config.py
 tests/test_csv_utils.py
 tests/test_mlkem_benchmark.py
@@ -54,7 +57,9 @@ do workstream khác cung cấp.
 
 | Thành phần | Vai trò, đầu vào/đầu ra và phụ thuộc | Owner / quyền sửa |
 |---|---|---|
-| `src/qkd_pqc/qkd/bb84_simulator.py` | Mô phỏng seeded BB84 rút gọn; vào `QKDConfig`, seed; ra `BB84Result` và CSV qua writer | Thành viên 1; người khác chỉ sửa khi phối hợp |
+| `src/qkd_pqc/qkd/bb84_simulator.py` | Mô phỏng seeded BB84 rút gọn có Eve, noise, loss; vào `QKDConfig`, seed; ra `BB84Result` và CSV qua writer | Thành viên 1; người khác chỉ sửa khi phối hợp |
+| `src/qkd_pqc/qkd/experiment.py`, `scripts/run_qkd_experiment.py` | Repeated Eve/noise/loss sweeps; mỗi trial ghi một CSV run-level | Thành viên 1; config sweep trong schema chung cần review Thành viên 5 |
+| `tests/test_qkd_experiment.py` | Kiểm tra sweep tạo các trial có cấu hình/seed tách biệt | Thành viên 1 |
 | `scripts/run_qkd.py` | CLI gọi config và BB84, ghi trạng thái | Thành viên 1; sửa pipeline chung cần báo Thành viên 5 |
 | `src/qkd_pqc/pqc/mlkem_benchmark.py` | Capability detection `pqcrypto.kem.ml_kem_768`, correctness, timings, CSV | Thành viên 2; tuyệt đối không đổi thuật toán ngầm |
 | `scripts/run_pqc_benchmark.py` | CLI tùy chọn benchmark, mã 2 khi không sẵn implementation | Thành viên 2 |
