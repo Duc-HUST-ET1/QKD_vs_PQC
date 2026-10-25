@@ -29,6 +29,10 @@ báo cáo.
    *Proceedings of the 35th Annual Symposium on Foundations of Computer Science*, 1994,
    tr. 124–134. DOI: <https://doi.org/10.1109/SFCS.1994.365700>. Bối cảnh tác động của máy tính
    lượng tử đến một số giả định public-key cổ điển; không phải phân tích ML-KEM.
+8. National Institute of Standards and Technology (NIST), *Recommendations for Key-Encapsulation
+   Mechanisms*, SP 800-227, September 2025.
+   <https://csrc.nist.gov/pubs/sp/800/227/final>. Hướng dẫn về đặc tính, ứng dụng, triển khai và
+   sử dụng KEM; không phải kết quả đánh giá backend hoặc benchmark của repository.
 
 ## Kỷ luật bằng chứng
 
@@ -37,10 +41,15 @@ báo cáo.
   quả đo hoặc quy định chuẩn.
 - `project_scope_limit`: giới hạn của simulator/benchmark hiện tại.
 - `measured_project_data`: chỉ số được tính từ dữ liệu CSV thực tế của project; nêu run ID, seed
-  (nếu có), môi trường, version và cấu hình liên quan.
+  (nếu có), môi trường, version, đơn vị và cấu hình liên quan. `analyze_tradeoffs()` chỉ nhận
+  mapping metric và không kiểm tra provenance; caller phải xác nhận metric được tính từ CSV hợp lệ.
+  Bảng comparison hiện chỉ có các cột `dimension,qkd,pqc,evidence_type`, nên không tự mang run ID
+  hay cấu hình nguồn; giữ CSV nguồn và ghi provenance trong báo cáo/artefact đi kèm.
 
 Tiêu chuẩn quy định thuật toán/giao diện, không đo hiệu năng trên máy dự án. Bài BB84 gốc và chứng
 minh giao thức không xác nhận simulator đơn giản là implementation QKD an toàn. Chuẩn ML-KEM
-không chứng minh backend cụ thể đã được kiểm định hoặc tích hợp ứng dụng an toàn. Không dùng
-reference để suy ra cost, distance, throughput hay ưu thế tổng quát nếu nguồn không đo trực tiếp
-điều đó.
+không chứng minh backend cụ thể đã được kiểm định hoặc tích hợp ứng dụng an toàn. Trang công bố
+FIPS 203 của NIST hiện có planning note ngày 2025-11-17 về một issue dự kiến được sửa; kiểm tra
+errata/phiên bản chính thức mới nhất trước khi dựa vào chi tiết tiêu chuẩn. Không dùng reference
+để suy ra hiệu năng benchmark của project, cost, distance, throughput hay ưu thế tổng quát nếu
+nguồn không đo trực tiếp điều đó.

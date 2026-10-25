@@ -3,6 +3,12 @@ import pytest
 from qkd_pqc.system.tradeoff_analysis import analyze_tradeoffs
 
 
+def test_tradeoffs_without_metrics_do_not_create_measured_items():
+    items = analyze_tradeoffs()
+
+    assert all(item.evidence_type != "measured_project_data" for item in items)
+
+
 def test_tradeoffs_separate_qualitative_claims_and_measured_data():
     items = analyze_tradeoffs(
         qkd_metrics={"mean_qber": 0.05},
@@ -47,6 +53,10 @@ def test_tradeoff_metrics_are_sorted_deterministically():
     [
         {"": 1},
         {"measurement": float("nan")},
+        {"measurement": float("inf")},
+        {"measurement": float("-inf")},
+        {"measurement": "nan"},
+        {"measurement": "Infinity"},
         {"measurement": True},
         {"measurement": ""},
         {1: 1},

@@ -41,6 +41,14 @@ def _validated_metrics(
             raise ValueError(f"Metric '{name}' must be finite.")
         if isinstance(value, str) and not value.strip():
             raise ValueError(f"Metric '{name}' must not be empty.")
+        if isinstance(value, str):
+            try:
+                numeric_value = float(value)
+            except ValueError:
+                pass
+            else:
+                if not math.isfinite(numeric_value):
+                    raise ValueError(f"Metric '{name}' must be finite.")
         normalized.append((name, str(value)))
     return normalized
 
@@ -49,7 +57,11 @@ def analyze_tradeoffs(
     qkd_metrics: Mapping[str, str | float | int] | None = None,
     pqc_metrics: Mapping[str, str | float | int] | None = None,
 ) -> list[TradeoffItem]:
-    """Return literature-led qualitative claims plus only explicitly supplied measurements."""
+    """Return qualitative claims and caller-designated measurements.
+
+    Metric mappings must contain summaries derived from validated project CSV data. This function
+    labels supplied values as measured but cannot verify their source or preserve their provenance.
+    """
     validated_qkd_metrics = _validated_metrics(qkd_metrics, "QKD")
     validated_pqc_metrics = _validated_metrics(pqc_metrics, "PQC")
     items = [
@@ -80,7 +92,7 @@ def analyze_tradeoffs(
             "Requires an authenticated classical channel; QKD does not remove the authentication "
             "bootstrap requirement [2, 5].",
             "ML-KEM alone does not authenticate endpoints; an authenticated protocol is still "
-            "required [3].",
+            "required [3, 8].",
             "qualitative_reference_based",
         ),
         TradeoffItem(
@@ -95,9 +107,17 @@ def analyze_tradeoffs(
             "Deployment and operations",
             "Hardware, channel conditions, integration, and operational constraints require "
             "deployment-specific assessment.",
-            "Implementation support, protocol integration, key handling, and system constraints "
+            "Implementation support, protocol integration, and system constraints "
             "require deployment-specific assessment.",
             "qualitative_assumption",
+        ),
+        TradeoffItem(
+            "Endpoint and key lifecycle",
+            "Endpoint protection, authentication credentials, and key management remain necessary "
+            "outside the QKD exchange [4].",
+            "The KEM shared secret requires protected endpoints and application-level key handling "
+            "after decapsulation [4, 8].",
+            "qualitative_reference_based",
         ),
         TradeoffItem(
             "Scalability and limitations",
