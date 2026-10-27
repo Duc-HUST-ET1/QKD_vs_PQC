@@ -47,7 +47,7 @@ tổng quát với QKD.
 | # | Vấn đề | Owner | Xử lý |
 |---|---|---|---|
 | 1 | `configs/experiment_config.yaml` có `eve_probability: 1.0` (commit `ab14865`), trái với docs (`0.0`) và với smoke test của báo cáo BB84. Với giá trị này, `run_all.py` mặc định cho QBER khoảng 25% và trạng thái reject. | Thành viên 5 (config dùng chung), commit của Thành viên 3 | Khôi phục `0.0` trong PR này. Thêm test `test_shipped_config_matches_documented_defaults`. **Cần Thành viên 3 xác nhận.** |
-| 2 | Thư mục `.pytest-tmp/` (CSV, PNG, symlink tạm của pytest) đã bị commit lên `main`. | Thành viên 5 | Thêm vào `.gitignore`, gỡ khỏi index (`git rm --cached`). File local không bị xóa. |
+| 2 | Thư mục `.pytest-tmp/` (CSV, PNG, symlink tạm của pytest) đã bị commit lên `main`. | Thành viên 5 | Thêm vào `.gitignore` để không bị commit lại. 21 file đã có **được giữ nguyên**; đề xuất gỡ trong một PR riêng (`chore/remove-pytest-tmp`) sau khi Thành viên 1 đồng ý. |
 | 3 | Test plotting lỗi ngẫu nhiên do backend Tk. | Thành viên 5 (tests), Thành viên 3 (plotting) | Thêm `tests/conftest.py` dùng `Agg`. `run_all.py` mặc định `MPLBACKEND=Agg`. **Đề xuất Thành viên 3** gọi `matplotlib.use("Agg")` trong `plotting.py` để `run_analysis.py` cũng an toàn. |
 | 4 | `run_all.py` chạy capability self-test ML-KEM hai lần (một lần trực tiếp, một lần trong `run_mlkem_benchmark`). | Thành viên 5 | Chỉ gọi `run_mlkem_benchmark` và bắt `MLKEMUnavailableError` để báo skip. |
 | 5 | `run_all.py` không chạy được sweep của Thành viên 1. | Thành viên 5 | Thêm `--sweep`. Phân tích nhận đúng danh sách CSV của sweep vừa chạy. |
@@ -65,7 +65,7 @@ tổng quát với QKD.
   khớp docs.
 - `tests/conftest.py` (mới): backend `Agg` cho test.
 - `configs/experiment_config.yaml`: `eve_probability` từ `1.0` về `0.0`.
-- `.gitignore`: thêm `.pytest-tmp/`, gỡ thư mục này khỏi Git.
+- `.gitignore`: thêm `.pytest-tmp/` (không xóa file nào đã được commit).
 - `README.md`: cập nhật cờ CLI, `--sweep`, trạng thái ML-KEM.
 
 ## Thứ tự merge đề xuất
@@ -83,5 +83,5 @@ tổng quát với QKD.
 - [x] CSV interfaces: phân tích dùng đúng file của lượt chạy, raw không bị ghi đè
 - [x] Suite: 57 passed / 2 skipped trên nhánh; 62 passed trên bản gộp thử
 - [x] Docs: README, báo cáo này
-- [x] Không có output/secret vô tình commit: đã gỡ `.pytest-tmp/`; mục 9 chờ nhóm quyết định
+- [ ] Không có output/secret vô tình commit: đã chặn `.pytest-tmp/` mới; gỡ file cũ (mục 2) và mục 9 chờ nhóm quyết định
 - [ ] Merge hai nhánh còn lại và kiểm tra lại trên `main`
