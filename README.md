@@ -85,12 +85,14 @@ Mọi script cần chạy từ thư mục gốc sau khi cài package editable. C
 | `python scripts/run_qkd.py` | Chạy BB84 với seed trong config | Một CSV duy nhất `data/raw/qkd_*.csv` |
 | `python scripts/run_qkd_experiment.py` | Chạy repeated sweeps cho Eve, noise và loss theo config | CSV riêng cho mỗi trial trong `data/raw/` |
 | `python scripts/run_pqc_benchmark.py` | Chạy đúng ML-KEM-768 nếu adapter xác minh được implementation | Một CSV `data/raw/mlkem_*.csv`; mã thoát 2 nếu không hỗ trợ |
-| `python scripts/run_analysis.py` | Đọc mọi CSV `qkd_*.csv` và `mlkem_*.csv` trong thư mục raw | PNG trong `figures/`, bảng trong `data/processed/`; không có CSV thì thông báo bỏ qua |
-| `python scripts/run_all.py` | Chạy BB84, thử benchmark PQC tùy chọn, phân tích đầu ra của lần chạy này | Trạng thái từng bước; mã thoát khác 0 khi bước bắt buộc hoặc phân tích lỗi |
-| `python -m pytest` | Chạy unit tests | Kết quả test trong terminal |
+| `python scripts/run_analysis.py [--qkd-run-prefix qkd_...]` | Đọc mọi CSV `qkd_*.csv` và `mlkem_*.csv` trong thư mục raw; prefix giới hạn các CSV QKD | PNG trong `figures/`, bảng trong `data/processed/`; không có CSV thì thông báo bỏ qua |
+| `python scripts/run_all.py [--sweep]` | Chạy BB84, (tùy chọn) sweep, thử benchmark PQC, phân tích đúng các CSV của lần chạy này | Trạng thái `completed`/`skipped`/`failed` cho từng bước; mã thoát khác 0 khi một bước lỗi |
+| `python -m pytest` | Chạy unit tests và test tích hợp pipeline | Kết quả test trong terminal |
 
-Các script chỉ hỗ trợ cờ `--config`; hiện không có cờ CLI để thay riêng số lần lặp, seed hoặc
-đường dẫn output. Hãy thay đổi file YAML (hoặc cung cấp file cấu hình khác). Đường dẫn cấu hình
+Ngoài `--config`, chỉ có `run_analysis.py --qkd-run-prefix` và `run_all.py --sweep`; không có cờ
+CLI để thay riêng số lần lặp, seed hoặc đường dẫn output. Hãy thay đổi file YAML (hoặc cung cấp
+file cấu hình khác). Prefix run ID chỉ chính xác tới phút, nên có thể lẫn CSV của lần chạy khác
+cùng phút; `run_all.py --sweep` truyền chính xác danh sách CSV nên không gặp vấn đề này. Đường dẫn cấu hình
 tương đối được phân giải từ thư mục gốc dự án. Xem [docs/DEVELOPMENT_GUIDE.md](docs/DEVELOPMENT_GUIDE.md)
 để biết chi tiết giao diện Python và CSV.
 
@@ -110,11 +112,14 @@ chỉ đưa chúng lên GitHub khi nhóm duyệt ngoại lệ.
 - `run_all.py` chỉ phân tích CSV vừa tạo trong lần chạy đó; `run_analysis.py` quét mọi file khớp
   tiền tố `qkd_`/`mlkem_` trong thư mục raw.
 
-Các chức năng đã có trong source nhưng chưa có benchmark ML-KEM thực tế đi kèm. Adapter hiện thử
-API `pqcrypto.kem.ml_kem_768`; tương thích thực tế phụ thuộc phiên bản package. Trong môi trường
-đã khảo sát trước đây, OpenSSL 3.4.0 không quảng bá ML-KEM trong danh sách KEM, và `pqcrypto`
-không được cài. Hãy kiểm tra lại backend trên máy của bạn; không suy diễn hỗ trợ chỉ từ phiên bản
-OpenSSL.
+- `run_all.py` dùng matplotlib backend `Agg` (chỉ ghi file ảnh) trừ khi `MPLBACKEND` đã được đặt;
+  test cũng dùng `Agg` qua `tests/conftest.py`.
+
+Adapter ML-KEM trên `main` gọi `generate_keypair`/`encrypt`/`decrypt`, trong khi `pqcrypto` 1.0.0
+cung cấp `keygen`/`encaps`/`decaps`, nên trên `main` benchmark sẽ bị skip dù đã cài `pqcrypto`.
+Nhánh `feature/mlkem-benchmark` sửa adapter này; xem kết quả kiểm tra tích hợp trong
+[reports/INTEGRATION_REPORT.md](reports/INTEGRATION_REPORT.md). Không suy diễn hỗ trợ ML-KEM chỉ
+từ phiên bản OpenSSL.
 
 ## Tài liệu
 
