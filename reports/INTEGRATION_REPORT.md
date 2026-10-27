@@ -52,8 +52,8 @@ tổng quát với QKD.
 | 4 | `run_all.py` chạy capability self-test ML-KEM hai lần (một lần trực tiếp, một lần trong `run_mlkem_benchmark`). | Thành viên 5 | Chỉ gọi `run_mlkem_benchmark` và bắt `MLKEMUnavailableError` để báo skip. |
 | 5 | `run_all.py` không chạy được sweep của Thành viên 1. | Thành viên 5 | Thêm `--sweep`. Phân tích nhận đúng danh sách CSV của sweep vừa chạy. |
 | 6 | `--qkd-run-prefix` chỉ chính xác tới phút: prefix `qkd_20261027T1355` lẫn thêm 1 CSV của lần `run_all` cùng phút (141 thay vì 140 dòng). | Thành viên 1/3 | Ghi chú trong README. `run_all.py --sweep` không bị ảnh hưởng. Đề xuất in prefix đầy đủ hơn hoặc ghi manifest danh sách file. |
-| 7 | Adapter trên `main` không nhận `pqcrypto` 1.0.0 (API `keygen`/`encaps`/`decaps`), nên ML-KEM luôn bị skip. | Thành viên 2 | Nhánh `feature/mlkem-benchmark` đã sửa và chạy được (xem trên). **Cần mở PR.** Docs `DEVELOPMENT_GUIDE.md` và `EXPERIMENT_PROTOCOL.md` vẫn ghi API cũ. |
-| 8 | Bảng `data/processed/comparison_20261019T085604_0a1ec043.csv` và `figures/mlkem_latency_cdf.png` trên `main` có số ML-KEM (ví dụ keygen median 651.1 µs) nhưng không có CSV raw `mlkem_*.csv` đi kèm. Lần đo ở đây cho 43.1 µs. | Thành viên 3 | Chưa xác minh được nguồn. **Cần Thành viên 3 cho biết CSV raw và môi trường đo**; nếu không có, đề xuất gỡ hoặc tạo lại từ CSV thật. |
+| 7 | Adapter trên `main` không nhận `pqcrypto` 1.0.0 (API `keygen`/`encaps`/`decaps`), nên ML-KEM luôn bị skip. | Thành viên 2 | PR #5 (`feature/mlkem-benchmark`) đã sửa và chạy được (xem trên); đề xuất approve. Docs `DEVELOPMENT_GUIDE.md` và `EXPERIMENT_PROTOCOL.md` vẫn ghi API cũ. |
+| 8 | Bảng `data/processed/comparison_20261019T085604_0a1ec043.csv` và `figures/mlkem_latency_cdf.png` trên `main` có số ML-KEM (ví dụ keygen median 651.1 µs) nhưng không có CSV raw `mlkem_*.csv` đi kèm. Lần đo ở đây cho 43.1 µs. | Thành viên 3 | Chưa xác minh được nguồn. PR #4 thêm `comparison_20261025T022915_ef778c5c.csv` với **cùng các số này**, vẫn không có CSV raw, và có `mean_qber` gộp 6 run khác cấu hình. **Đề xuất request changes cho PR #4**: tạo lại bảng/hình từ CSV thật sau khi merge PR #5. |
 | 9 | `figures/` và `data/processed/` bị `.gitignore` chặn nhưng vẫn có file được ép commit. | Cả nhóm | Chưa thay đổi. Cần nhóm quyết định: gỡ các file này, hoặc tạo ngoại lệ cho assets báo cáo. |
 
 ## Thay đổi trong PR này
@@ -70,10 +70,11 @@ tổng quát với QKD.
 
 ## Thứ tự merge đề xuất
 
-1. PR này (`integration/pipeline`), sau khi Thành viên 3 xác nhận mục 1.
-2. `feature/model` (Thành viên 4), không xung đột.
-3. `feature/mlkem-benchmark` (Thành viên 2), kèm cập nhật docs API.
-4. Chạy lại `pytest` và `run_all.py --sweep` trên `main` sau khi merge, cập nhật báo cáo này.
+1. PR #3 (`feature/model`, Thành viên 4): không xung đột.
+2. PR #5 (`feature/mlkem-benchmark`, Thành viên 2): docs API cập nhật sau.
+3. PR này (`integration/pipeline`), sau khi Thành viên 3 xác nhận mục 1.
+4. PR #4 (Thành viên 3): làm lại từ CSV thật hoặc đóng.
+5. Chạy lại `pytest` và `run_all.py --sweep` trên `main` sau khi merge, cập nhật báo cáo này.
 
 ## Checklist Thành viên 5
 
