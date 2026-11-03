@@ -9,18 +9,21 @@ lập khóa, và yêu cầu hạ tầng ảnh hưởng ra sao đến tính phù 
 ## Dự án làm gì?
 
 - **QKD/BB84:** mô phỏng cổ điển các bit, cơ sở đo, Eve intercept-resend, lỗi lật bit, mất tín
-  hiệu Bernoulli, sifting, QBER và tỷ lệ bit được giữ lại. Đây **không phải** mô phỏng trạng thái
-  lượng tử hoặc hệ thống QKD an toàn để triển khai.
+  hiệu Bernoulli, sifting, QBER và tỷ lệ bit được giữ lại; ghi thêm thời gian xử lý của simulator.
+  Runtime đó **không phải** key rate QKD. Đây không phải mô phỏng trạng thái lượng tử hoặc hệ thống
+  QKD an toàn để triển khai.
 - **PQC/ML-KEM-768:** nếu có đúng implementation tương thích, đo riêng key generation,
   encapsulation và decapsulation; kiểm tra hai shared secret trùng nhau. Không tự thay bằng
   thuật toán khác.
 - **Phân tích:** tạo biểu đồ từ CSV thực tế và bảng so sánh ghi rõ dữ liệu đo, nhận định định tính
-  và giả định. QBER và độ trễ thuật toán là hai đại lượng khác nhau, không được so sánh trực tiếp.
+  và giả định. Tốc độ simulator BB84 và latency ML-KEM là các phép đo khác loại, không kết luận
+  trực tiếp QKD nhanh/chậm hơn; hạ tầng được đánh giá định tính, không có xếp hạng deployment.
 
 Không kết luận rằng QBER dưới 11% chứng minh khóa an toàn, hoặc benchmark phần mềm chứng minh PQC
 luôn nhanh hơn QKD. Hệ thống QKD thực tế cần kênh cổ điển được xác thực và các bước xử lý bảo mật
 khác; phạm vi hiện tại không gồm error correction, privacy amplification, finite-key proof hay
-phần cứng quang học.
+phần cứng quang học. Project không đo physical secret-key rate, thời gian handshake qua mạng,
+chi phí hay khoảng cách triển khai.
 
 ## Bắt đầu nhanh
 
@@ -115,9 +118,10 @@ chỉ đưa chúng lên GitHub khi nhóm duyệt ngoại lệ.
 - `run_all.py` dùng matplotlib backend `Agg` (chỉ ghi file ảnh) trừ khi `MPLBACKEND` đã được đặt;
   test cũng dùng `Agg` qua `tests/conftest.py`.
 
-Adapter ML-KEM trên `main` gọi `generate_keypair`/`encrypt`/`decrypt`, trong khi `pqcrypto` 1.0.0
-cung cấp `keygen`/`encaps`/`decaps`, nên trên `main` benchmark sẽ bị skip dù đã cài `pqcrypto`.
-Nhánh `feature/mlkem-benchmark` sửa adapter này; xem kết quả kiểm tra tích hợp trong
+Adapter ML-KEM gọi API backend `pqcrypto.kem.ml_kem_768` (`keygen`, `encaps`, `decaps`) thông qua
+các phương thức nội bộ `generate_keypair`, `encrypt`, `decrypt`. Benchmark chỉ chạy khi capability
+self-test xác nhận đúng implementation và shared secret; nếu thiếu backend, lệnh báo unavailable
+thay vì thay bằng thuật toán khác. Xem kết quả tích hợp và giới hạn provenance trong
 [reports/INTEGRATION_REPORT.md](reports/INTEGRATION_REPORT.md). Không suy diễn hỗ trợ ML-KEM chỉ
 từ phiên bản OpenSSL.
 

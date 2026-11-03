@@ -108,6 +108,8 @@ def test_plotting_does_not_count_duplicate_seeded_runs_as_repetitions(tmp_path):
         "simulator_version",
         "qber",
         "sifted_fraction",
+        "simulation_elapsed_us",
+        "simulation_signals_per_second",
     )
     row = {
         "seed": "42",
@@ -119,6 +121,8 @@ def test_plotting_does_not_count_duplicate_seeded_runs_as_repetitions(tmp_path):
         "simulator_version": "0.1.0",
         "qber": "0",
         "sifted_fraction": "0.5",
+        "simulation_elapsed_us": "1000",
+        "simulation_signals_per_second": "100000",
     }
     _write_rows(
         qkd_file,
@@ -155,6 +159,8 @@ def test_plotting_omits_averages_across_mixed_qkd_settings(tmp_path):
         "simulator_version",
         "qber",
         "sifted_fraction",
+        "simulation_elapsed_us",
+        "simulation_signals_per_second",
     )
     rows = [
         {
@@ -168,6 +174,8 @@ def test_plotting_omits_averages_across_mixed_qkd_settings(tmp_path):
             "simulator_version": "0.1.0",
             "qber": "0",
             "sifted_fraction": "0.5",
+            "simulation_elapsed_us": "1000",
+            "simulation_signals_per_second": "100000",
         },
         {
             "run_id": "eve",
@@ -180,6 +188,8 @@ def test_plotting_omits_averages_across_mixed_qkd_settings(tmp_path):
             "simulator_version": "0.1.0",
             "qber": "0.12",
             "sifted_fraction": "0.5",
+            "simulation_elapsed_us": "2000",
+            "simulation_signals_per_second": "50000",
         },
     ]
     _write_rows(qkd_file, fields, rows)
@@ -201,3 +211,75 @@ def test_plotting_omits_averages_across_mixed_qkd_settings(tmp_path):
         "multiple_settings; consult per-setting plots"
     )
     assert dimensions["Measured QKD: setting_count"] == "2"
+    assert "Measured BB84 simulator: simulation_elapsed_us_mean" not in dimensions
+    assert dimensions["Measured BB84 simulator: simulation_performance_scope"] == (
+        "multiple_conditions_or_runtimes; consult raw CSV"
+    )
+
+
+def test_plotting_reports_bb84_simulator_performance_for_one_runtime(tmp_path):
+    qkd_file = tmp_path / "qkd.csv"
+    fields = (
+        "seed",
+        "n_signals",
+        "channel_error_rate",
+        "eve_probability",
+        "channel_loss_rate",
+        "qber_threshold",
+        "simulator_version",
+        "python_version",
+        "platform",
+        "qber",
+        "sifted_fraction",
+        "simulation_elapsed_us",
+        "simulation_signals_per_second",
+    )
+    common = {
+        "n_signals": "100",
+        "channel_error_rate": "0",
+        "eve_probability": "0",
+        "channel_loss_rate": "0",
+        "qber_threshold": "0.11",
+        "simulator_version": "0.1.0",
+        "python_version": "3.11.0",
+        "platform": "test-platform",
+        "qber": "0",
+        "sifted_fraction": "0.5",
+    }
+    _write_rows(
+        qkd_file,
+        fields,
+        [
+            {
+                **common,
+                "seed": "1",
+                "simulation_elapsed_us": "1000",
+                "simulation_signals_per_second": "100000",
+            },
+            {
+                **common,
+                "seed": "2",
+                "simulation_elapsed_us": "3000",
+                "simulation_signals_per_second": "50000",
+            },
+        ],
+    )
+
+    create_plots(
+        qkd_csv=qkd_file,
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    with next((tmp_path / "processed").glob("*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {
+            row["dimension"]: row["qkd"] for row in csv.DictReader(stream)
+        }
+    assert dimensions["Measured BB84 simulator: simulation_elapsed_us_mean"] == (
+        "2000.000000"
+    )
+    assert dimensions[
+        "Measured BB84 simulator: simulation_signals_per_second_mean"
+    ] == "75000.000000"

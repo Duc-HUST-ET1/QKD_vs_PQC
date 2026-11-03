@@ -80,6 +80,15 @@ def analyze_tradeoffs(
             "qualitative_reference_based",
         ),
         TradeoffItem(
+            "Performance evidence boundary",
+            "The measured elapsed time and signals per second are for this Python teaching "
+            "simulator only; they are not physical QKD key-generation throughput or secret-key "
+            "rate.",
+            "The measured key-generation, encapsulation, and decapsulation times are local "
+            "primitive timings; they are not a network handshake or end-to-end protocol latency.",
+            "project_scope_limit",
+        ),
+        TradeoffItem(
             "Quantum adversary",
             "The protocol's security motivation concerns information gain from quantum measurement; "
             "real deployment security remains device- and proof-dependent [1, 2].",
@@ -97,18 +106,22 @@ def analyze_tradeoffs(
         ),
         TradeoffItem(
             "Infrastructure",
-            "Requires quantum transmission equipment/channel plus authenticated classical "
-            "communications [5, 6].",
-            "Uses classical computation and communication; deployed applications still need "
-            "cryptographic protocol integration [3].",
+            "A deployment needs quantum transmission equipment and a usable quantum channel, plus "
+            "an authenticated classical channel and trust bootstrap. Without these prerequisites, "
+            "this project cannot establish QKD deployment suitability [5, 6].",
+            "A deployment can use classical computation and communication, but needs a supported "
+            "ML-KEM implementation, authenticated protocol integration, and endpoint/key "
+            "management. A primitive benchmark alone does not establish deployment suitability "
+            "[3, 8].",
             "qualitative_reference_based",
         ),
         TradeoffItem(
             "Deployment and operations",
-            "Hardware, channel conditions, integration, and operational constraints require "
-            "deployment-specific assessment.",
-            "Implementation support, protocol integration, and system constraints "
-            "require deployment-specific assessment.",
+            "Suitability depends on whether the target sites can support the required QKD equipment, "
+            "channel, authentication, and operations; this repository has no site, distance, cost, "
+            "or field-performance data.",
+            "Suitability depends on target-platform support, protocol integration, authentication, "
+            "and key lifecycle; this repository does not measure application or network performance.",
             "qualitative_assumption",
         ),
         TradeoffItem(
@@ -131,7 +144,11 @@ def analyze_tradeoffs(
     if validated_qkd_metrics:
         for name, value in validated_qkd_metrics:
             items.append(TradeoffItem(
-                dimension=f"Measured QKD: {name}",
+                dimension=(
+                    f"Measured BB84 simulator: {name}"
+                    if name.startswith("simulation_")
+                    else f"Measured QKD: {name}"
+                ),
                 qkd=value,
                 pqc="not applicable",
                 evidence_type="measured_project_data",

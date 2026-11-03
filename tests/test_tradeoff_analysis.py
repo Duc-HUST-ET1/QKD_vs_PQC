@@ -38,6 +38,17 @@ def test_tradeoff_claims_keep_authentication_and_sources_explicit():
     assert "[3]" in items["Security basis"].pqc
 
 
+def test_tradeoffs_separate_simulator_performance_from_deployment_performance():
+    items = {item.dimension: item for item in analyze_tradeoffs()}
+
+    assert "not physical QKD key-generation throughput" in (
+        items["Performance evidence boundary"].qkd
+    )
+    assert "not a network handshake" in items["Performance evidence boundary"].pqc
+    assert "Without these prerequisites" in items["Infrastructure"].qkd
+    assert "primitive benchmark alone" in items["Infrastructure"].pqc
+
+
 def test_tradeoff_metrics_are_sorted_deterministically():
     items = analyze_tradeoffs(qkd_metrics={"z_metric": 2, "a_metric": 1})
     measured_dimensions = [
