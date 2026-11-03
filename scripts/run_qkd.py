@@ -25,7 +25,10 @@ def main() -> int:
         f"loss_fraction={result.loss_fraction:.6f}, sifted_bits={result.sifted_bits}, "
         f"error_bits={result.error_bits}, qber={result.qber}, "
         f"sifted_fraction={result.sifted_fraction:.6f}, "
-        f"status={result.illustrative_status}"
+        f"status={result.illustrative_status}, "
+        f"simulation_elapsed_us={result.simulation_elapsed_us:.3f}, "
+        "simulation_signals_per_second="
+        f"{result.simulation_signals_per_second:.3f}"
     )
     return 0
 

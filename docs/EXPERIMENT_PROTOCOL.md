@@ -60,7 +60,10 @@ nghiệm cần QKD thực tế phải có authenticated classical channel và qu
 
 Lệnh: `python scripts/run_qkd.py [--config PATH]`. Đầu ra là một row trong
 `data/raw/qkd_*.csv`; output không bao gồm các bit khóa. Mỗi file ghi thêm loss rate, số tín hiệu
-đã nhận/mất và loss fraction sau các cột BB84 cũ.
+đã nhận/mất, loss fraction, thời gian vòng lặp mô phỏng và số tín hiệu simulator xử lý mỗi giây.
+Timer chỉ bao quanh vòng lặp Python xử lý `n_signals`; không gồm validation, ghi CSV hay setup hệ
+thống. Đây là benchmark runtime của simulator giáo dục, không phải tốc độ tạo khóa bí mật QKD,
+secret-key rate hay hiệu năng thiết bị. Phải đọc kết quả cùng Python version/platform trong CSV.
 
 ## Experiment A2 — BB84 repeated sweeps
 
@@ -79,23 +82,28 @@ không commit nếu chưa được nhóm duyệt. Nhiều file có cùng seed, c
 được tính một lần; chạy lại cùng seed không tạo thêm một mẫu thống kê độc lập.
 Comparison CSV không gộp mean QBER/sifting/loss qua các cấu hình khác nhau; với dữ liệu nhiều setting,
 nó ghi `measurement_scope` và `setting_count`, còn số liệu theo điều kiện được xem trong từng biểu đồ
-và run CSV.
+và run CSV. Thời gian và throughput mô phỏng chỉ được tổng hợp khi số tín hiệu, xác suất mô hình,
+simulator version, Python version và platform đồng nhất; dữ liệu trộn điều kiện/runtime được giữ
+riêng và không tính mean chung.
 Kết quả batch đã quan sát được và các giới hạn được ghi tại
 [reports/QKD_BB84_EXPERIMENT.md](../reports/QKD_BB84_EXPERIMENT.md); báo cáo đang chờ review.
 
 ## Experiment B — ML-KEM-768
 
-Implementation được adapter hiện hỗ trợ là module `pqcrypto.kem.ml_kem_768` với các hàm
-`generate_keypair`, `encrypt`, `decrypt`. Capability check xác minh package version, các hàm
-callable, chạy round-trip, và xác nhận shared secret đúng. Nếu bất kỳ bước nào không đạt, adapter
-không báo sẵn sàng; không tự dùng algorithm khác.
+Implementation được adapter hiện hỗ trợ là module `pqcrypto.kem.ml_kem_768`, dùng API backend
+`keygen`, `encaps`, `decaps`. Adapter bọc API này thành các phương thức nội bộ `generate_keypair`,
+`encrypt`, `decrypt` để giữ giao diện của project ổn định. Capability check xác minh package
+version, các hàm backend callable, chạy round-trip, và xác nhận shared secret đúng. Nếu bất kỳ bước
+nào không đạt, adapter không báo sẵn sàng; không tự dùng algorithm khác.
 
 Mỗi warm-up iteration gọi keygen, encapsulation và decapsulation một lần, rồi kiểm tra shared
 secret; warm-up không được ghi vào CSV. Mỗi measured iteration:
 
-1. Đo riêng `generate_keypair()`.
-2. Đo riêng `encrypt(public_key)` để tạo ciphertext/shared secret.
-3. Đo riêng `decrypt(secret_key, ciphertext)` rồi kiểm tra equality sau khi timer dừng.
+1. Đo riêng `generate_keypair()` (gọi backend `keygen()`).
+2. Đo riêng `encrypt(public_key)` (gọi backend `encaps(public_key)`) để tạo ciphertext/shared
+   secret.
+3. Đo riêng `decrypt(secret_key, ciphertext)` (gọi backend `decaps(secret_key, ciphertext)`) rồi
+   kiểm tra equality sau khi timer dừng.
 
 Timer là `time.perf_counter_ns()`, chia 1,000 để báo microseconds. Timing không bao gồm ghi file.
 Key/ciphertext được tạo trong measured iteration; keygen cũng là operation timed riêng trong
@@ -107,6 +115,19 @@ byte áp dụng, warmup/repetition count, implementation/version, platform và P
 liệu bí mật không được xuất. Nếu thư viện vắng hoặc không tương thích, `run_pqc_benchmark.py` trả
 mã 2 và không tạo benchmark CSV; ghi nhận trạng thái đó là “unavailable/skipped”, không phải số
 đo.
+
+## Diễn giải hiệu năng và hạ tầng
+
+Thời gian BB84 phía trên chỉ cho biết chi phí tính toán của simulator bit/basis bằng Python; các
+tốc độ này không thể so sánh trực tiếp với latency ML-KEM để kết luận QKD nhanh/chậm hơn. ML-KEM
+được đo ở mức operation mật mã trên runtime/platform cục bộ, không gồm mạng, protocol handshake,
+xác thực hoặc quản lý khóa. Project hiện không đo physical QKD key rate, thời gian trao đổi qua
+kênh, cost, khoảng cách, thiết bị quang hoặc hiệu năng triển khai end-to-end.
+
+Đánh giá hạ tầng trong comparison là định tính và có điều kiện: QKD cần thiết bị/kênh truyền lượng
+tử cùng kênh cổ điển xác thực và trust bootstrap; ML-KEM cần implementation được hỗ trợ, nền tảng
+classical, protocol tích hợp xác thực và key lifecycle. Không có các thông tin về site, endpoint,
+network hay vận hành cụ thể thì không thể xếp hạng một phương án phù hợp hơn cho một deployment.
 
 ## Experiment C — so sánh hệ thống định tính
 

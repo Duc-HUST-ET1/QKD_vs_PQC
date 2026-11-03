@@ -25,6 +25,17 @@ def test_simulation_is_reproducible_for_fixed_seed():
     assert first.illustrative_status == second.illustrative_status
 
 
+def test_simulation_reports_loop_runtime_and_processing_rate():
+    with patch(
+        "qkd_pqc.qkd.bb84_simulator.time.perf_counter_ns",
+        side_effect=(1_000_000, 3_000_000),
+    ):
+        result = simulate_bb84(QKDConfig(10, 0.0, 0.0, 0.11), seed=42)
+
+    assert result.simulation_elapsed_us == 2_000.0
+    assert result.simulation_signals_per_second == 5_000.0
+
+
 def test_qber_is_error_bits_divided_by_sifted_bits():
     result = simulate_bb84(
         QKDConfig(
@@ -189,3 +200,5 @@ def test_result_csv_matches_documented_schema(tmp_path):
     assert len(rows) == 1
     assert int(rows[0]["received_signals"]) == result.received_signals
     assert float(rows[0]["loss_fraction"]) == result.loss_fraction
+    assert float(rows[0]["simulation_elapsed_us"]) > 0
+    assert float(rows[0]["simulation_signals_per_second"]) > 0

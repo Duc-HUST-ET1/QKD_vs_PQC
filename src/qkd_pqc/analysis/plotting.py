@@ -172,6 +172,8 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
     fractions: list[float] = []
     loss_fractions: list[float] = []
     settings: set[tuple[str, ...]] = set()
+    simulation_performance: list[tuple[float, float]] = []
+    simulation_performance_settings: set[tuple[str, ...]] = set()
     for index, row in enumerate(rows, start=2):
         settings.add(
             (
@@ -192,6 +194,27 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
         loss_fraction = _number(row, "loss_fraction", index)
         if loss_fraction is not None and 0.0 <= loss_fraction <= 1.0:
             loss_fractions.append(loss_fraction)
+        elapsed_us = _number(row, "simulation_elapsed_us", index)
+        signals_per_second = _number(row, "simulation_signals_per_second", index)
+        if elapsed_us is not None and signals_per_second is not None:
+            if elapsed_us <= 0 or signals_per_second <= 0:
+                logger.warning(
+                    "Skipping row %d: BB84 simulator timing values must be positive.",
+                    index,
+                )
+                continue
+            simulation_performance.append((elapsed_us, signals_per_second))
+            simulation_performance_settings.add(
+                (
+                    row.get("n_signals", ""),
+                    row.get("channel_error_rate", ""),
+                    row.get("eve_probability", ""),
+                    row.get("channel_loss_rate", "") or "0",
+                    row.get("simulator_version", ""),
+                    row.get("python_version", ""),
+                    row.get("platform", ""),
+                )
+            )
     metrics: dict[str, str] = {"valid_run_rows": str(len(rows))}
     if len(settings) > 1:
         logger.info(
@@ -199,13 +222,30 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
         )
         metrics["measurement_scope"] = "multiple_settings; consult per-setting plots"
         metrics["setting_count"] = str(len(settings))
-        return metrics
-    if qbers:
-        metrics["mean_qber"] = f"{statistics.fmean(qbers):.8f}"
-    if fractions:
-        metrics["mean_sifted_fraction"] = f"{statistics.fmean(fractions):.8f}"
-    if loss_fractions:
-        metrics["mean_loss_fraction"] = f"{statistics.fmean(loss_fractions):.8f}"
+    else:
+        if qbers:
+            metrics["mean_qber"] = f"{statistics.fmean(qbers):.8f}"
+        if fractions:
+            metrics["mean_sifted_fraction"] = f"{statistics.fmean(fractions):.8f}"
+        if loss_fractions:
+            metrics["mean_loss_fraction"] = f"{statistics.fmean(loss_fractions):.8f}"
+    if len(simulation_performance_settings) == 1:
+        elapsed_values = [elapsed for elapsed, _ in simulation_performance]
+        throughput_values = [throughput for _, throughput in simulation_performance]
+        metrics["simulation_performance_rows"] = str(len(simulation_performance))
+        metrics["simulation_elapsed_us_mean"] = (
+            f"{statistics.fmean(elapsed_values):.6f}"
+        )
+        metrics["simulation_signals_per_second_mean"] = (
+            f"{statistics.fmean(throughput_values):.6f}"
+        )
+    elif len(simulation_performance_settings) > 1:
+        metrics["simulation_performance_scope"] = (
+            "multiple_conditions_or_runtimes; consult raw CSV"
+        )
+        metrics["simulation_performance_setting_count"] = str(
+            len(simulation_performance_settings)
+        )
     return metrics
 
 

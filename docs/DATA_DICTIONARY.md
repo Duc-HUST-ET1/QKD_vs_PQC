@@ -43,6 +43,12 @@ Các cột tương thích được nối thêm sau header cũ:
 channel_loss_rate,received_signals,lost_signals,loss_fraction
 ```
 
+Các cột đo hiệu năng mô phỏng được nối tiếp:
+
+```text
+simulation_elapsed_us,simulation_signals_per_second
+```
+
 | Cột | Kiểu/đơn vị | Ý nghĩa |
 |---|---|---|
 | `run_id` | chuỗi | ID duy nhất có tiền tố `qkd_` |
@@ -64,11 +70,15 @@ channel_loss_rate,received_signals,lost_signals,loss_fraction
 | `received_signals` | số nguyên | Số tín hiệu đến được Bob; Eve chỉ có thể chặn các tín hiệu này |
 | `lost_signals` | số nguyên | `n_signals - received_signals`; mất tín hiệu không được tính là lỗi bit |
 | `loss_fraction` | tỷ lệ [0,1] | `lost_signals / n_signals` |
+| `simulation_elapsed_us` | microsecond | Thời gian đơn điệu đo riêng cho vòng lặp Python xử lý các tín hiệu; không gồm validation, tạo kết quả/metadata hay ghi CSV |
+| `simulation_signals_per_second` | tín hiệu mô phỏng/giây | `n_signals` chia cho thời gian vòng lặp; tốc độ xử lý của simulator trên runtime/platform ghi trong row, không phải key rate QKD |
 
 CSV không lưu seed riêng cho từng signal hay bit khóa; seed và tham số cho phép chạy lại thống kê
 với code version tương ứng. Các cột loss được nối thêm để giữ nguyên tên và thứ tự của các cột cũ;
 consumer chỉ đọc header cũ vẫn có thể đọc file mới. File lịch sử thiếu các cột loss được xem như
 không khai báo loss khi phân tích tương thích ngược.
+Các CSV cũ không có cột timing vẫn đọc được; comparison chỉ tổng hợp timing khi điều kiện mô phỏng,
+phiên bản, Python và platform đồng nhất. Không gộp thời gian qua nhiều setting hoặc runtime.
 
 ## CSV benchmark ML-KEM-768
 
@@ -109,10 +119,11 @@ file I/O không nằm trong vùng đo.
 Header: `dimension,qkd,pqc,evidence_type`.
 
 `evidence_type` phân biệt `qualitative_reference_based`, `qualitative_assumption`,
-`project_scope_limit`, `measured_project_data`. Từng measurement được truyền từ CSV vào bảng và
-phải giữ provenance; “not applicable” không đồng nghĩa bằng 0. Với QKD CSV chỉ có một setting,
-bảng có thể ghi các mean measurement; nếu có nhiều setting, chỉ ghi `valid_run_rows`,
-`measurement_scope` và `setting_count`, không gộp các kịch bản thành một mean khó diễn giải.
+`project_scope_limit`, `measured_project_data`. Timing simulator được ghi thành
+`Measured BB84 simulator` để phân biệt với hiệu năng thiết bị/kênh QKD. Từng measurement được
+truyền từ CSV vào bảng và phải giữ provenance; “not applicable” không đồng nghĩa bằng 0. Với QKD
+CSV nhiều setting, bảng không gộp các kịch bản thành một mean khó diễn giải; performance chỉ được
+tổng hợp khi điều kiện, phiên bản và runtime đồng nhất.
 
 ## Tên file và ghi nhận không khả dụng
 

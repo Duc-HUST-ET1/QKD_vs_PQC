@@ -48,8 +48,9 @@ quan trọng khi gọi API trực tiếp.
 | `output` | `raw_data_dir`, `processed_data_dir`, `figures_dir` | Chuỗi đường dẫn tương đối, phân giải từ project root |
 
 Không có `openssl_provider`, path backend hoặc config API ML-KEM khác. Backend hỗ trợ trong mã
-hiện tại là package `pqcrypto` với module `pqcrypto.kem.ml_kem_768`; adapter cần có callable
-`generate_keypair`, `encrypt`, `decrypt`.
+hiện tại là package `pqcrypto` với module `pqcrypto.kem.ml_kem_768` và callable `keygen`,
+`encaps`, `decaps`. Adapter chuyển API backend thành các phương thức nội bộ
+`generate_keypair`, `encrypt`, `decrypt`; không nhầm tên phương thức nội bộ với API upstream.
 
 ## CSV thực tế
 
@@ -58,13 +59,15 @@ hiện tại là package `pqcrypto` với module `pqcrypto.kem.ml_kem_768`; adap
 Header bắt đầu bằng các cột ổn định: `run_id, timestamp_utc, seed, n_signals,
 channel_error_rate, eve_probability, qber_threshold, sifted_bits, error_bits, qber,
 sifted_fraction, illustrative_status, simulator_version, python_version, platform`; bản hiện tại
-nối thêm `channel_loss_rate, received_signals, lost_signals, loss_fraction`.
+nối thêm `channel_loss_rate, received_signals, lost_signals, loss_fraction,
+simulation_elapsed_us, simulation_signals_per_second`.
 
 `qber` là tỷ lệ [0, 1], để trống nếu không có sifted bit; các xác suất/fraction nằm trong [0, 1].
 `sifted_fraction=sifted_bits/n_signals`; `loss_fraction=lost_signals/n_signals`. Kết quả không
 chứa bit khóa. Status `illustrative_accept`/`illustrative_reject` chỉ minh họa. Consumer cũ không
 đọc các cột mới vẫn đọc được phần schema cũ; CSV lịch sử thiếu loss được xử lý như loss 0 trong
-plotting.
+plotting. Thời gian/throughput mới đo vòng lặp Python của simulator, không phải hiệu năng QKD vật lý;
+consumer phân tích chỉ tổng hợp chúng khi điều kiện, simulator version, Python và platform giống nhau.
 
 ### ML-KEM: một dòng cho mỗi mẫu timed operation
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import logging
 import math
 import random
+import time
 from pathlib import Path
 
 from qkd_pqc import __version__
@@ -33,6 +34,8 @@ BB84_CSV_FIELDS = (
     "received_signals",
     "lost_signals",
     "loss_fraction",
+    "simulation_elapsed_us",
+    "simulation_signals_per_second",
 )
 
 
@@ -59,6 +62,8 @@ class BB84Result:
     received_signals: int
     lost_signals: int
     loss_fraction: float
+    simulation_elapsed_us: float
+    simulation_signals_per_second: float
 
     def as_csv_row(self) -> dict[str, object]:
         """Serialize the run result using the documented CSV field names."""
@@ -94,6 +99,7 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
     sifted_bits = 0
     error_bits = 0
 
+    simulation_started_ns = time.perf_counter_ns()
     for _ in range(config.n_signals):
         alice_bit = rng.randrange(2)
         alice_basis = rng.randrange(2)
@@ -120,6 +126,14 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
         if bob_basis == alice_basis:
             sifted_bits += 1
             error_bits += bob_bit != alice_bit
+
+    simulation_elapsed_ns = time.perf_counter_ns() - simulation_started_ns
+    if simulation_elapsed_ns <= 0:
+        raise RuntimeError("The performance timer did not advance during BB84 simulation.")
+    simulation_elapsed_us = simulation_elapsed_ns / 1_000.0
+    simulation_signals_per_second = (
+        config.n_signals * 1_000_000_000 / simulation_elapsed_ns
+    )
 
     qber = error_bits / sifted_bits if sifted_bits else None
     sifted_fraction = sifted_bits / config.n_signals
@@ -150,6 +164,8 @@ def simulate_bb84(config: QKDConfig, seed: int | None = None) -> BB84Result:
         received_signals=received_signals,
         lost_signals=lost_signals,
         loss_fraction=loss_fraction,
+        simulation_elapsed_us=simulation_elapsed_us,
+        simulation_signals_per_second=simulation_signals_per_second,
     )
     logger.info(
         "BB84 simulation complete: %s, sifted=%d/%d, QBER=%s, status=%s",
