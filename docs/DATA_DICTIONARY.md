@@ -119,7 +119,8 @@ file I/O không nằm trong vùng đo.
 Header: `dimension,qkd,pqc,evidence_type`.
 
 `evidence_type` phân biệt `qualitative_reference_based`, `qualitative_assumption`,
-`project_scope_limit`, `measured_project_data`. Timing simulator được ghi thành
+`project_scope_limit`, `measured_project_data` và `measurement_metadata` (scope/count/provenance,
+không phải metric hiệu năng). Timing simulator được ghi thành
 `Measured BB84 simulator` để phân biệt với hiệu năng thiết bị/kênh QKD. Từng measurement được
 truyền từ CSV vào bảng và phải giữ provenance; “not applicable” không đồng nghĩa bằng 0. Với QKD
 CSV nhiều setting, bảng không gộp các kịch bản thành một mean khó diễn giải; performance chỉ được

@@ -22,7 +22,37 @@ QKD_REQUIRED_COLUMNS = {
 }
 PQC_REQUIRED_COLUMNS = {"algorithm", "operation", "latency_us"}
 SUMMARY_FIELDS = ("dimension", "qkd", "pqc", "evidence_type")
-PQC_OPERATIONS = {"key_generation", "encapsulation", "decapsulation"}
+PQC_OPERATION_ORDER = ("key_generation", "encapsulation", "decapsulation")
+PQC_OPERATIONS = set(PQC_OPERATION_ORDER)
+PQC_PROVENANCE_COLUMNS = (
+    "implementation",
+    "implementation_version",
+    "python_version",
+    "platform",
+    "warmup_iterations",
+    "measured_iterations",
+)
+QKD_FIGURE_NAMES = (
+    "qber_vs_eve_probability.png",
+    "qber_vs_channel_error_rate.png",
+    "sifted_fraction_vs_channel_error_rate.png",
+    "sifted_fraction_vs_channel_loss_rate.png",
+)
+PQC_FIGURE_NAME = "mlkem_latency_cdf.png"
+
+
+def _remove_stale_figure(path: Path) -> None:
+    """Remove a known generated figure when current inputs cannot support it."""
+    try:
+        path.unlink()
+    except FileNotFoundError:
+        return
+    logger.warning("Removed stale figure without current measurements: %s", path)
+
+
+def _short_label(value: str, limit: int = 30) -> str:
+    value = value or "not recorded"
+    return value if len(value) <= limit else f"{value[:limit - 1]}…"
 
 
 def _read_csv_files(
@@ -42,7 +72,7 @@ def _read_csv_files(
                 raise ValueError(
                     f"{path} is missing required column(s): {', '.join(sorted(missing))}"
                 )
-            rows.extend(reader)
+            rows.extend({**row, "_source_path": str(path.resolve())} for row in reader)
     return rows
 
 
@@ -140,6 +170,7 @@ def _save_summary_plot(
 
     if not groups:
         logger.warning("No valid measurements available for %s; figure not created.", title)
+        _remove_stale_figure(path)
         return False
     import matplotlib.pyplot as plt
 
@@ -249,24 +280,65 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
     return metrics
 
 
-def _pqc_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
-    grouped: dict[str, list[float]] = {operation: [] for operation in PQC_OPERATIONS}
+def _pqc_measurements(
+    rows: Sequence[Mapping[str, str]],
+) -> dict[tuple[tuple[str, ...], str], dict[str, list[float]]]:
+    grouped: dict[tuple[tuple[str, ...], str], dict[str, list[float]]] = {}
     for index, row in enumerate(rows, start=2):
+        if row.get("algorithm") != "ML-KEM-768":
+            raise ValueError(
+                f"Row {index} has unsupported algorithm {row.get('algorithm')!r}; "
+                "only ML-KEM-768 results may be analyzed."
+            )
         operation = row.get("operation", "")
         latency = _number(row, "latency_us", index)
-        if operation not in grouped:
+        if operation not in PQC_OPERATIONS:
             logger.warning("Skipping row %d: unknown ML-KEM operation '%s'.", index, operation)
             continue
-        if latency is not None and latency >= 0:
-            grouped[operation].append(latency)
+        if latency is None:
+            continue
+        if latency < 0:
+            logger.warning("Skipping row %d: latency_us must be non-negative.", index)
+            continue
+        provenance = tuple((row.get(column) or "").strip() for column in PQC_PROVENANCE_COLUMNS)
+        # If an older CSV omits environment/protocol metadata, don't pool it with another file:
+        # the source file is the only remaining boundary between unknown measurement cohorts.
+        source_scope = (
+            row.get("_source_path", "")
+            if any(not value for value in provenance)
+            else ""
+        )
+        group_key = (provenance, source_scope)
+        grouped.setdefault(group_key, {name: [] for name in PQC_OPERATION_ORDER})[
+            operation
+        ].append(latency)
+    return grouped
+
+
+def _pqc_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
+    by_provenance = _pqc_measurements(rows)
     metrics: dict[str, str] = {}
-    for operation, values in grouped.items():
-        if values:
-            ordered = sorted(values)
-            metrics[f"{operation}_median_latency_us"] = f"{statistics.median(values):.6f}"
-            metrics[f"{operation}_p95_latency_us"] = (
-                f"{ordered[math.ceil(0.95 * len(ordered)) - 1]:.6f}"
-            )
+    if not by_provenance:
+        return metrics
+    if len(by_provenance) > 1:
+        metrics["measurement_scope"] = (
+            "multiple_implementations_or_runtimes; consult per-group CDF and raw CSV"
+        )
+        metrics["measurement_group_count"] = str(len(by_provenance))
+        return metrics
+
+    (group_key, operation_groups), = by_provenance.items()
+    provenance, _source_scope = group_key
+    for operation, values in operation_groups.items():
+        if not values:
+            continue
+        ordered = sorted(values)
+        metrics[f"{operation}_median_latency_us"] = f"{statistics.median(values):.6f}"
+        metrics[f"{operation}_p95_latency_us"] = (
+            f"{ordered[math.ceil(0.95 * len(ordered)) - 1]:.6f}"
+        )
+    for column, value in zip(PQC_PROVENANCE_COLUMNS, provenance):
+        metrics[f"provenance_{column}"] = value or "not recorded"
     return metrics
 
 
@@ -319,31 +391,39 @@ def create_plots(
     processed_path.mkdir(parents=True, exist_ok=True)
     created: list[Path] = []
 
+    # These filenames are fixed outputs. Remove old plots absent from this analysis input so a
+    # missing benchmark cannot leave an earlier run's graph looking like a current result.
+    if not qkd_rows:
+        for filename in QKD_FIGURE_NAMES:
+            _remove_stale_figure(figures_path / filename)
+    if not pqc_rows:
+        _remove_stale_figure(figures_path / PQC_FIGURE_NAME)
+
     if qkd_rows:
         series = (
             (
                 "eve_probability", "qber", ("channel_error_rate", "channel_loss_rate"),
                 "Eve intercept probability", "Mean QBER",
                 "QBER vs Eve probability (noise=0, loss=0)",
-                "qber_vs_eve_probability.png",
+                QKD_FIGURE_NAMES[0],
             ),
             (
                 "channel_error_rate", "qber", ("eve_probability", "channel_loss_rate"),
                 "Channel bit-flip probability", "Mean QBER",
                 "QBER vs channel noise (Eve=0, loss=0)",
-                "qber_vs_channel_error_rate.png",
+                QKD_FIGURE_NAMES[1],
             ),
             (
                 "channel_error_rate", "sifted_fraction", ("eve_probability", "channel_loss_rate"),
                 "Channel bit-flip probability", "Mean sifted fraction",
                 "Sifted fraction vs channel noise (Eve=0, loss=0)",
-                "sifted_fraction_vs_channel_error_rate.png",
+                QKD_FIGURE_NAMES[2],
             ),
             (
                 "channel_loss_rate", "sifted_fraction", ("eve_probability", "channel_error_rate"),
                 "Channel loss probability", "Mean sifted fraction",
                 "Sifted fraction vs channel loss (Eve=0, noise=0)",
-                "sifted_fraction_vs_channel_loss_rate.png",
+                QKD_FIGURE_NAMES[3],
             ),
         )
         for x_column, y_column, controls, x_label, y_label, title, filename in series:
@@ -354,33 +434,33 @@ def create_plots(
                 created.append(path)
 
     if pqc_rows:
-        grouped: dict[str, list[float]] = {operation: [] for operation in PQC_OPERATIONS}
-        for index, row in enumerate(pqc_rows, start=2):
-            if row.get("algorithm") != "ML-KEM-768":
-                raise ValueError(
-                    f"Row {index} has unsupported algorithm {row.get('algorithm')!r}; "
-                    "only ML-KEM-768 results may be analyzed."
-                )
-            operation = row.get("operation", "")
-            latency = _number(row, "latency_us", index)
-            if operation not in grouped:
-                logger.warning("Skipping row %d: unknown ML-KEM operation '%s'.", index, operation)
-                continue
-            if latency is not None and latency >= 0:
-                grouped[operation].append(latency)
-            elif latency is not None:
-                logger.warning("Skipping row %d: latency_us must be non-negative.", index)
-
-        if any(grouped.values()):
+        grouped = _pqc_measurements(pqc_rows)
+        if any(values for group in grouped.values() for values in group.values()):
             import matplotlib.pyplot as plt
 
             figure, axis = plt.subplots()
-            for operation, values in grouped.items():
-                if values:
+            show_provenance = len(grouped) > 1
+            for group_key, operations in grouped.items():
+                provenance, source_scope = group_key
+                for operation, values in operations.items():
+                    if not values:
+                        continue
                     ordered = sorted(values)
                     cumulative = [(index + 1) / len(ordered)
                                  for index in range(len(ordered))]
-                    axis.step(ordered, cumulative, where="post", label=operation)
+                    label = operation
+                    if show_provenance:
+                        implementation, version, python, platform, warmup, measured = provenance
+                        label = (
+                            f"{operation}\n"
+                            f"{_short_label(implementation)} {_short_label(version)}; "
+                            f"Python {_short_label(python)}\n"
+                            f"{_short_label(platform)}; warmup={warmup or '?'}; "
+                            f"n={measured or '?'}"
+                        )
+                        if source_scope:
+                            label += f"\nsource={Path(source_scope).name}"
+                    axis.step(ordered, cumulative, where="post", label=label)
             axis.set_xlabel("Operation latency (microseconds)")
             axis.set_ylabel("Cumulative fraction")
             axis.set_title("ML-KEM-768 operation latency distributions")
@@ -388,12 +468,13 @@ def create_plots(
             axis.grid(True, alpha=0.3)
             axis.legend()
             figure.tight_layout()
-            path = figures_path / "mlkem_latency_cdf.png"
+            path = figures_path / PQC_FIGURE_NAME
             figure.savefig(path, dpi=150)
             plt.close(figure)
             created.append(path)
         else:
             logger.warning("No valid ML-KEM latency samples; latency figure not created.")
+            _remove_stale_figure(figures_path / PQC_FIGURE_NAME)
 
     comparison_path = _write_comparison_table(
         _qkd_metrics(qkd_rows) if qkd_rows else None,

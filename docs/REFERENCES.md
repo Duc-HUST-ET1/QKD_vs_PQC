@@ -40,6 +40,8 @@ báo cáo.
 - `qualitative_assumption`: giả định triển khai cần được ghi là giả định, không trình bày như kết
   quả đo hoặc quy định chuẩn.
 - `project_scope_limit`: giới hạn của simulator/benchmark hiện tại.
+- `measurement_metadata`: thông tin scope, số nhóm, số dòng hoặc provenance mô tả dữ liệu; không
+  phải số đo hiệu năng.
 - `measured_project_data`: chỉ số được tính từ dữ liệu CSV thực tế của project; nêu run ID, seed
   (nếu có), môi trường, version, đơn vị và cấu hình liên quan. `analyze_tradeoffs()` chỉ nhận
   mapping metric và không kiểm tra provenance; caller phải xác nhận metric được tính từ CSV hợp lệ.

@@ -116,6 +116,12 @@ liệu bí mật không được xuất. Nếu thư viện vắng hoặc không 
 mã 2 và không tạo benchmark CSV; ghi nhận trạng thái đó là “unavailable/skipped”, không phải số
 đo.
 
+Khi phân tích nhiều file ML-KEM, CDF được chia thành đường riêng cho từng nhóm
+implementation/version, Python/platform và số vòng warm-up/đo. Bảng comparison chỉ tính median/p95
+gộp khi các trường provenance này đồng nhất; nếu có nhiều nhóm, bảng ghi scope và số nhóm, không
+gộp latency khác môi trường. Với CSV cũ thiếu provenance, bảng sẽ đánh dấu rõ trường nào không
+được ghi để người đọc không nhầm đó là phép đo tái lập đầy đủ.
+
 ## Diễn giải hiệu năng và hạ tầng
 
 Thời gian BB84 phía trên chỉ cho biết chi phí tính toán của simulator bit/basis bằng Python; các
@@ -134,7 +140,8 @@ network hay vận hành cụ thể thì không thể xếp hạng một phương
 `analyze_tradeoffs()` tạo các chiều security basis, key establishment, quantum adversary,
 authentication, infrastructure, deployment và limits. Claim định tính gắn nhãn
 `qualitative_reference_based`, `qualitative_assumption` hoặc `project_scope_limit`; metric chỉ
-được thêm khi caller đưa vào và gắn `measured_project_data`.
+được thêm khi caller đưa vào. Giá trị đo gắn `measured_project_data`; scope/count/provenance gắn
+`measurement_metadata` và không được coi là số đo.
 
 Không có số cost, range, throughput thực địa của repository. Không diễn giải QBER như latency và
 không kết luận benchmark primitive chứng minh PQC nói chung nhanh hơn QKD.
@@ -146,7 +153,9 @@ không kết luận benchmark primitive chứng minh PQC nói chung nhanh hơn Q
   nhưng vẫn giữ cách phân tích tương thích.
 - `python scripts/run_all.py [--config PATH]` chạy BB84, thử PQC tùy chọn, sau đó chỉ phân tích
   CSV từ chính lượt chạy hiện tại.
-- Figures được ghi trong `figures/` với tên cố định; chạy lại có thể ghi đè PNG.
+- Figures được ghi trong `figures/` với tên cố định; chạy lại có thể ghi đè PNG. Nếu có CSV đầu
+  vào nhưng không có dữ liệu hợp lệ cho một hình, PNG cũ cùng tên sẽ bị xóa. Khi không có CSV đầu
+  vào, analysis được bỏ qua và giữ nguyên figures hiện có.
 - Bảng comparison được lưu tên mới trong `data/processed/`.
 - Không có CSV: script analysis thông báo skip, không tạo dữ liệu giả. Lỗi schema/file được báo.
 

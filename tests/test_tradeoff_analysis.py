@@ -29,6 +29,33 @@ def test_tradeoffs_separate_qualitative_claims_and_measured_data():
     }
 
 
+def test_tradeoffs_label_scope_and_provenance_as_metadata():
+    items = analyze_tradeoffs(
+        qkd_metrics={"measurement_scope": "multiple_settings", "setting_count": 3},
+        pqc_metrics={
+            "key_generation_median_latency_us": 43.0,
+            "provenance_platform": "Windows",
+            "measurement_group_count": 2,
+        },
+    )
+    measured = {
+        item.dimension: item for item in items
+        if item.evidence_type == "measured_project_data"
+    }
+    metadata = {
+        item.dimension: item for item in items
+        if item.evidence_type == "measurement_metadata"
+    }
+
+    assert set(measured) == {"Measured ML-KEM-768: key_generation_median_latency_us"}
+    assert set(metadata) == {
+        "Measured QKD: measurement_scope",
+        "Measured QKD: setting_count",
+        "Measured ML-KEM-768: measurement_group_count",
+        "Measured ML-KEM-768: provenance_platform",
+    }
+
+
 def test_tradeoff_claims_keep_authentication_and_sources_explicit():
     items = {item.dimension: item for item in analyze_tradeoffs()}
 

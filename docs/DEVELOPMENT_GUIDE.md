@@ -88,8 +88,9 @@ Chi tiết từng cột và provenance ở [DATA_DICTIONARY.md](DATA_DICTIONARY.
 - BB84 là mô hình bit/basis cổ điển đơn giản, không phải QKD production.
 - Ngưỡng 0.11 chỉ là assumption minh họa; không chứng minh bảo mật.
 - Không suy ra PQC nhanh hơn/tốt hơn mọi QKD từ benchmark primitive trên một máy.
-- Gắn nhãn rõ `measured_project_data`, `qualitative_reference_based`,
-  `qualitative_assumption` hoặc giới hạn phạm vi. Không dùng kết quả minh họa như số đo.
+- Gắn nhãn rõ `measured_project_data`, `measurement_metadata`,
+  `qualitative_reference_based`, `qualitative_assumption` hoặc giới hạn phạm vi. Không dùng kết quả
+  minh họa hay metadata như số đo.
 - Không bao gồm phần cứng quang học, error correction, privacy amplification, finite-key
   analysis/proof hoặc xác thực QKD hoàn chỉnh.
 

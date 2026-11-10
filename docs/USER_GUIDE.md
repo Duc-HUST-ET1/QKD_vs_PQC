@@ -183,7 +183,14 @@ python scripts/run_analysis.py
 
 Script tìm mọi `qkd_*.csv` và `mlkem_*.csv` trong thư mục raw theo cấu hình. Nó kiểm tra cột bắt
 buộc, bỏ qua hàng có giá trị rỗng/không hữu hạn/không hợp lệ, và tạo ảnh chỉ khi có dữ liệu thật
-hợp lệ. PNG được lưu trong `figures/`; tên hình là cố định nên có thể bị ghi đè khi chạy lại.
+hợp lệ. PNG được lưu trong `figures/`; tên hình là cố định nên hình cùng loại có thể bị ghi đè.
+Nếu lần phân tích có CSV đầu vào nhưng dữ liệu hiện tại không hỗ trợ một hình, hình cũ cùng tên
+sẽ bị xóa để tránh hiển thị kết quả lỗi thời. Khi không có CSV nào, phân tích được bỏ qua và
+không dọn các hình hiện có.
+
+Khi đầu vào có nhiều CSV ML-KEM, CDF dùng đường riêng theo implementation/version, Python/platform
+và cấu hình warm-up/đo. Bảng comparison chỉ gộp latency khi provenance thống nhất; nếu không,
+bảng ghi số nhóm và yêu cầu xem từng nhóm/raw CSV.
 Bảng định tính và các metric tổng hợp (nếu có) được ghi thành CSV mới trong
 `data/processed/`. Nếu không có file raw nào, chương trình thông báo bỏ qua và kết thúc thành
 công; không sinh dữ liệu giả. Với repeated sweeps, QBER/sifted fraction được tổng hợp theo xác

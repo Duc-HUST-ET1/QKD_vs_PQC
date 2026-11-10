@@ -33,19 +33,35 @@ def test_plotting_skips_invalid_measurement_rows(tmp_path):
         }],
     )
 
+    figures_dir = tmp_path / "figures"
+    figures_dir.mkdir()
+    stale_names = (
+        "qber_vs_eve_probability.png",
+        "qber_vs_channel_error_rate.png",
+        "sifted_fraction_vs_channel_error_rate.png",
+        "sifted_fraction_vs_channel_loss_rate.png",
+        "mlkem_latency_cdf.png",
+    )
+    for name in stale_names:
+        (figures_dir / name).write_bytes(b"stale output")
+
     figures = create_plots(
         qkd_csv=qkd_file,
-        figures_dir=tmp_path / "figures",
+        figures_dir=figures_dir,
         processed_dir=tmp_path / "processed",
     )
 
     assert figures == []
-    assert not list((tmp_path / "figures").glob("*.png"))
+    assert not list(figures_dir.glob("*.png"))
     assert len(list((tmp_path / "processed").glob("*.csv"))) == 1
 
 
 def test_plotting_creates_only_data_supported_figures(tmp_path):
     qkd_file = tmp_path / "qkd.csv"
+    figures_dir = tmp_path / "figures"
+    figures_dir.mkdir()
+    stale_mlkem_figure = figures_dir / "mlkem_latency_cdf.png"
+    stale_mlkem_figure.write_bytes(b"old benchmark")
     _write_rows(
         qkd_file,
         (
@@ -82,7 +98,7 @@ def test_plotting_creates_only_data_supported_figures(tmp_path):
 
     figures = create_plots(
         qkd_csv=qkd_file,
-        figures_dir=tmp_path / "figures",
+        figures_dir=figures_dir,
         processed_dir=tmp_path / "processed",
     )
 
@@ -93,6 +109,7 @@ def test_plotting_creates_only_data_supported_figures(tmp_path):
         "sifted_fraction_vs_channel_loss_rate.png",
     }
     assert all(path.is_file() for path in figures)
+    assert not stale_mlkem_figure.exists()
 
 
 def test_plotting_does_not_count_duplicate_seeded_runs_as_repetitions(tmp_path):
@@ -283,3 +300,164 @@ def test_plotting_reports_bb84_simulator_performance_for_one_runtime(tmp_path):
     assert dimensions[
         "Measured BB84 simulator: simulation_signals_per_second_mean"
     ] == "75000.000000"
+
+
+def test_plotting_does_not_combine_mlkem_runs_from_different_environments(
+    tmp_path, monkeypatch
+):
+    from matplotlib.axes import Axes
+
+    labels = []
+    original_step = Axes.step
+
+    def record_label(axis, *args, **kwargs):
+        labels.append(kwargs.get("label"))
+        return original_step(axis, *args, **kwargs)
+
+    monkeypatch.setattr(Axes, "step", record_label)
+    fields = (
+        "algorithm",
+        "operation",
+        "latency_us",
+        "implementation",
+        "implementation_version",
+        "python_version",
+        "platform",
+        "warmup_iterations",
+        "measured_iterations",
+    )
+    first = tmp_path / "mlkem-first.csv"
+    second = tmp_path / "mlkem-second.csv"
+    common = {
+        "algorithm": "ML-KEM-768",
+        "operation": "key_generation",
+        "warmup_iterations": "50",
+        "measured_iterations": "1000",
+    }
+    _write_rows(
+        first,
+        fields,
+        [{
+            **common,
+            "latency_us": "40",
+            "implementation": "pqcrypto",
+            "implementation_version": "1.0.0",
+            "python_version": "3.11.3",
+            "platform": "Windows-A",
+        }],
+    )
+    _write_rows(
+        second,
+        fields,
+        [{
+            **common,
+            "latency_us": "400",
+            "implementation": "pqcrypto",
+            "implementation_version": "1.0.0",
+            "python_version": "3.12.0",
+            "platform": "Linux-B",
+        }],
+    )
+
+    figures = create_plots(
+        pqc_csv=[first, second],
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    assert [path.name for path in figures] == ["mlkem_latency_cdf.png"]
+    with next((tmp_path / "processed").glob("comparison_*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {
+            row["dimension"]: row["pqc"] for row in csv.DictReader(stream)
+        }
+    assert dimensions["Measured ML-KEM-768: measurement_scope"] == (
+        "multiple_implementations_or_runtimes; consult per-group CDF and raw CSV"
+    )
+    assert dimensions["Measured ML-KEM-768: measurement_group_count"] == "2"
+    assert "Measured ML-KEM-768: key_generation_median_latency_us" not in dimensions
+    assert len(labels) == 2
+    assert any("Python 3.11.3" in label for label in labels)
+    assert any("Python 3.12.0" in label for label in labels)
+
+
+def test_plotting_records_mlkem_provenance_for_one_environment(tmp_path):
+    pqc_file = tmp_path / "mlkem.csv"
+    fields = (
+        "algorithm",
+        "operation",
+        "latency_us",
+        "implementation",
+        "implementation_version",
+        "python_version",
+        "platform",
+        "warmup_iterations",
+        "measured_iterations",
+    )
+    _write_rows(
+        pqc_file,
+        fields,
+        [{
+            "algorithm": "ML-KEM-768",
+            "operation": "key_generation",
+            "latency_us": "40",
+            "implementation": "pqcrypto",
+            "implementation_version": "1.0.0",
+            "python_version": "3.11.3",
+            "platform": "Windows-A",
+            "warmup_iterations": "50",
+            "measured_iterations": "1000",
+        }],
+    )
+
+    create_plots(
+        pqc_csv=pqc_file,
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    with next((tmp_path / "processed").glob("comparison_*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {
+            row["dimension"]: row["pqc"] for row in csv.DictReader(stream)
+        }
+    assert dimensions["Measured ML-KEM-768: key_generation_median_latency_us"] == (
+        "40.000000"
+    )
+    assert dimensions["Measured ML-KEM-768: provenance_implementation_version"] == (
+        "1.0.0"
+    )
+    assert dimensions["Measured ML-KEM-768: provenance_platform"] == "Windows-A"
+
+
+def test_plotting_keeps_legacy_mlkem_files_separate_without_provenance(tmp_path):
+    first = tmp_path / "legacy-first.csv"
+    second = tmp_path / "legacy-second.csv"
+    fields = ("algorithm", "operation", "latency_us")
+    _write_rows(
+        first,
+        fields,
+        [{"algorithm": "ML-KEM-768", "operation": "key_generation", "latency_us": "40"}],
+    )
+    _write_rows(
+        second,
+        fields,
+        [{"algorithm": "ML-KEM-768", "operation": "key_generation", "latency_us": "400"}],
+    )
+
+    create_plots(
+        pqc_csv=[first, second],
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    with next((tmp_path / "processed").glob("comparison_*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {
+            row["dimension"]: row["pqc"] for row in csv.DictReader(stream)
+        }
+    assert dimensions["Measured ML-KEM-768: measurement_group_count"] == "2"
+    assert "Measured ML-KEM-768: key_generation_median_latency_us" not in dimensions

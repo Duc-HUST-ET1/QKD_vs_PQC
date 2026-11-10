@@ -109,7 +109,12 @@ chỉ đưa chúng lên GitHub khi nhóm duyệt ngoại lệ.
 
 - CSV kết quả từng lần chạy được tạo với tên có run ID trong `data/raw/`; writer mở file ở chế độ
   không ghi đè. Git bỏ qua CSV tại đây.
-- Phân tích tạo tên PNG cố định trong `figures/`, vì vậy lần chạy sau có thể ghi đè hình trước.
+- Phân tích tạo tên PNG cố định trong `figures/`, nên hình mới có thể ghi đè hình cùng loại từ
+  lần trước. Khi có CSV đầu vào nhưng một loại hình không được dữ liệu hiện tại hỗ trợ, hình cũ
+  cùng tên sẽ bị xóa để không bị hiểu nhầm là kết quả mới; nếu không có CSV nào, pipeline bỏ qua
+  phân tích và giữ nguyên thư mục hình.
+- CDF ML-KEM được tách theo implementation/version, Python/platform và cấu hình warm-up/đo;
+  comparison không gộp median/p95 từ nhiều nhóm provenance.
 - Bảng so sánh dùng tên run ID trong `data/processed/`.
 - Log hiện chỉ ghi ra terminal (stdout/stderr); không có file log được tạo.
 - `run_all.py` chỉ phân tích CSV vừa tạo trong lần chạy đó; `run_analysis.py` quét mọi file khớp

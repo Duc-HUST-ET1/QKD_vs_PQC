@@ -94,6 +94,8 @@ handshake, mạng, xác thực, key management hay độ an toàn của ứng d�
   [REFERENCES.md](REFERENCES.md); phạm vi nguồn phải phù hợp với claim.
 - `qualitative_assumption`: giả định vận hành/triển khai chưa được đo trong repository.
 - `project_scope_limit`: điều repository hiện không mô phỏng hoặc không chứng minh.
+- `measurement_metadata`: scope, số lượng hoặc provenance của đầu vào; không được diễn giải như
+  một phép đo.
 - `measured_project_data`: chỉ metric được tính từ CSV đầu vào thật; caller chịu trách nhiệm chỉ
   truyền số liệu đã validate và giữ run/provenance, đơn vị, cấu hình cùng điều kiện đo. Hàm
   `analyze_tradeoffs()` không thể xác minh nguồn gốc mapping metric.

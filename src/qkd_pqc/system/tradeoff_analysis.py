@@ -9,6 +9,7 @@ EvidenceType = Literal[
     "qualitative_assumption",
     "project_scope_limit",
     "measured_project_data",
+    "measurement_metadata",
 ]
 
 
@@ -51,6 +52,17 @@ def _validated_metrics(
                     raise ValueError(f"Metric '{name}' must be finite.")
         normalized.append((name, str(value)))
     return normalized
+
+
+def _is_measurement_metadata(name: str) -> bool:
+    """Identify scope/count/provenance fields that describe measurements, not values."""
+    return (
+        name in {"measurement_scope", "measurement_group_count", "setting_count"}
+        or name.startswith("provenance_")
+        or name.endswith("_scope")
+        or name.endswith("_setting_count")
+        or name.endswith("_rows")
+    )
 
 
 def analyze_tradeoffs(
@@ -151,7 +163,11 @@ def analyze_tradeoffs(
                 ),
                 qkd=value,
                 pqc="not applicable",
-                evidence_type="measured_project_data",
+                evidence_type=(
+                    "measurement_metadata"
+                    if _is_measurement_metadata(name)
+                    else "measured_project_data"
+                ),
             ))
     if validated_pqc_metrics:
         for name, value in validated_pqc_metrics:
@@ -159,6 +175,10 @@ def analyze_tradeoffs(
                 dimension=f"Measured ML-KEM-768: {name}",
                 qkd="not applicable",
                 pqc=value,
-                evidence_type="measured_project_data",
+                evidence_type=(
+                    "measurement_metadata"
+                    if _is_measurement_metadata(name)
+                    else "measured_project_data"
+                ),
             ))
     return items
