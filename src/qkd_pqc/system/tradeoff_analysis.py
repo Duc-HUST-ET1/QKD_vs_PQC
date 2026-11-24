@@ -144,11 +144,7 @@ def analyze_tradeoffs(
     if validated_qkd_metrics:
         for name, value in validated_qkd_metrics:
             items.append(TradeoffItem(
-                dimension=(
-                    f"Measured BB84 simulator: {name}"
-                    if name.startswith("simulation_")
-                    else f"Measured QKD: {name}"
-                ),
+                dimension=f"Measured BB84 simulator: {name}",
                 qkd=value,
                 pqc="not applicable",
                 evidence_type="measured_project_data",

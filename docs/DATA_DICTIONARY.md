@@ -79,6 +79,8 @@ consumer chỉ đọc header cũ vẫn có thể đọc file mới. File lịch 
 không khai báo loss khi phân tích tương thích ngược.
 Các CSV cũ không có cột timing vẫn đọc được; comparison chỉ tổng hợp timing khi điều kiện mô phỏng,
 phiên bản, Python và platform đồng nhất. Không gộp thời gian qua nhiều setting hoặc runtime.
+Các row có cùng seed/cấu hình được khử trùng lặp khi tính QBER/sifting; với timing simulator, mỗi
+`run_id` khác nhau vẫn là một lần đo runtime riêng. Bản export lặp cùng `run_id` không được tính lại.
 
 ## CSV benchmark ML-KEM-768
 
@@ -113,17 +115,23 @@ run_id,timestamp_utc,algorithm,operation,iteration,latency_us,median_latency_us,
 Kích thước không liên quan để trống. Không xuất key, ciphertext hay shared-secret content. Timing
 dùng `perf_counter_ns()` rồi chuyển thành microsecond; cài package, correctness verification và
 file I/O không nằm trong vùng đo.
+Khi phân tích nhiều CSV, bản sao của cùng `(run_id, operation, iteration)` chỉ được tính một lần.
+CDF giữ cohort riêng theo algorithm, implementation/version, platform, Python version, warm-up và
+số lần đo. Comparison chỉ tổng hợp median/p95 khi toàn bộ mẫu thuộc cùng một cohort; nếu không,
+bảng ghi `measurement_scope` và `runtime_cohort_count`, không tạo latency trung bình gộp. Nhiều
+run trong cùng cohort có thể được tổng hợp chung; xem CDF và metadata để phân biệt cohort.
 
 ## Bảng comparison đã xử lý
 
 Header: `dimension,qkd,pqc,evidence_type`.
 
 `evidence_type` phân biệt `qualitative_reference_based`, `qualitative_assumption`,
-`project_scope_limit`, `measured_project_data`. Timing simulator được ghi thành
-`Measured BB84 simulator` để phân biệt với hiệu năng thiết bị/kênh QKD. Từng measurement được
-truyền từ CSV vào bảng và phải giữ provenance; “not applicable” không đồng nghĩa bằng 0. Với QKD
-CSV nhiều setting, bảng không gộp các kịch bản thành một mean khó diễn giải; performance chỉ được
-tổng hợp khi điều kiện, phiên bản và runtime đồng nhất.
+`project_scope_limit`, `measured_project_data`. Mọi số liệu từ CSV BB84 được ghi thành
+`Measured BB84 simulator`, không phải phép đo QKD vật lý. Từng measurement được truyền từ CSV vào
+bảng và phải giữ provenance; “not applicable” không đồng nghĩa bằng 0. Với BB84 CSV nhiều setting,
+bảng không gộp các kịch bản thành một mean khó diễn giải; performance chỉ được tổng hợp khi điều
+kiện, phiên bản và runtime đồng nhất. ML-KEM cũng không gộp latency giữa các implementation/version,
+platform, Python version hoặc cấu hình warm-up/repetition khác nhau.
 
 ## Tên file và ghi nhận không khả dụng
 

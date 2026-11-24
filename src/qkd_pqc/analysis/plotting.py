@@ -23,6 +23,15 @@ QKD_REQUIRED_COLUMNS = {
 PQC_REQUIRED_COLUMNS = {"algorithm", "operation", "latency_us"}
 SUMMARY_FIELDS = ("dimension", "qkd", "pqc", "evidence_type")
 PQC_OPERATIONS = {"key_generation", "encapsulation", "decapsulation"}
+PQC_COHORT_COLUMNS = (
+    "algorithm",
+    "implementation",
+    "implementation_version",
+    "platform",
+    "python_version",
+    "warmup_iterations",
+    "measured_iterations",
+)
 
 
 def _read_csv_files(
@@ -72,6 +81,45 @@ def _unique_qkd_runs(rows: Sequence[Mapping[str, str]]) -> list[Mapping[str, str
             )
             continue
         seen.add(identity_values)
+        unique_rows.append(row)
+    return unique_rows
+
+
+def _unique_qkd_measurement_runs(
+    rows: Sequence[Mapping[str, str]],
+) -> list[Mapping[str, str]]:
+    """Keep distinct execution timings while ignoring repeated exports of one run."""
+    unique_rows: list[Mapping[str, str]] = []
+    seen_run_ids: set[str] = set()
+    for row in rows:
+        run_id = row.get("run_id", "").strip()
+        if run_id and run_id in seen_run_ids:
+            logger.warning("Ignoring repeated BB84 export (run_id=%s).", run_id)
+            continue
+        if run_id:
+            seen_run_ids.add(run_id)
+        unique_rows.append(row)
+    return unique_rows
+
+
+def _unique_pqc_samples(rows: Sequence[Mapping[str, str]]) -> list[Mapping[str, str]]:
+    """Avoid counting the same exported ML-KEM sample more than once."""
+    unique_rows: list[Mapping[str, str]] = []
+    seen_samples: set[tuple[str, str, str]] = set()
+    for row in rows:
+        identity = (
+            row.get("run_id", "").strip(),
+            row.get("operation", "").strip(),
+            row.get("iteration", "").strip(),
+        )
+        if all(identity) and identity in seen_samples:
+            logger.warning(
+                "Ignoring repeated ML-KEM export (run_id=%s, operation=%s, iteration=%s).",
+                *identity,
+            )
+            continue
+        if all(identity):
+            seen_samples.add(identity)
         unique_rows.append(row)
     return unique_rows
 
@@ -167,13 +215,14 @@ def _save_summary_plot(
     return True
 
 
-def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
+def _qkd_metrics(
+    rows: Sequence[Mapping[str, str]],
+    simulator_rows: Sequence[Mapping[str, str]] | None = None,
+) -> dict[str, str]:
     qbers: list[float] = []
     fractions: list[float] = []
     loss_fractions: list[float] = []
     settings: set[tuple[str, ...]] = set()
-    simulation_performance: list[tuple[float, float]] = []
-    simulation_performance_settings: set[tuple[str, ...]] = set()
     for index, row in enumerate(rows, start=2):
         settings.add(
             (
@@ -194,6 +243,10 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
         loss_fraction = _number(row, "loss_fraction", index)
         if loss_fraction is not None and 0.0 <= loss_fraction <= 1.0:
             loss_fractions.append(loss_fraction)
+
+    simulation_performance: list[tuple[float, float]] = []
+    simulation_performance_settings: set[tuple[str, ...]] = set()
+    for index, row in enumerate(simulator_rows if simulator_rows is not None else rows, start=2):
         elapsed_us = _number(row, "simulation_elapsed_us", index)
         signals_per_second = _number(row, "simulation_signals_per_second", index)
         if elapsed_us is not None and signals_per_second is not None:
@@ -249,18 +302,48 @@ def _qkd_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
     return metrics
 
 
-def _pqc_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
-    grouped: dict[str, list[float]] = {operation: [] for operation in PQC_OPERATIONS}
+def _pqc_samples_by_cohort(
+    rows: Sequence[Mapping[str, str]],
+) -> dict[tuple[str, ...], dict[str, list[float]]]:
+    cohorts: dict[tuple[str, ...], dict[str, list[float]]] = {}
     for index, row in enumerate(rows, start=2):
         operation = row.get("operation", "")
         latency = _number(row, "latency_us", index)
-        if operation not in grouped:
+        if row.get("algorithm") != "ML-KEM-768":
+            raise ValueError(
+                f"Row {index} has unsupported algorithm {row.get('algorithm')!r}; "
+                "only ML-KEM-768 results may be analyzed."
+            )
+        if operation not in PQC_OPERATIONS:
             logger.warning("Skipping row %d: unknown ML-KEM operation '%s'.", index, operation)
             continue
         if latency is not None and latency >= 0:
-            grouped[operation].append(latency)
+            cohort = tuple(row.get(column, "").strip() for column in PQC_COHORT_COLUMNS)
+            operations = cohorts.setdefault(
+                cohort, {name: [] for name in PQC_OPERATIONS}
+            )
+            operations[operation].append(latency)
+        elif latency is not None:
+            logger.warning("Skipping row %d: latency_us must be non-negative.", index)
+    return cohorts
+
+
+def _pqc_metrics(
+    cohorts: Mapping[tuple[str, ...], Mapping[str, Sequence[float]]],
+) -> dict[str, str]:
+    if len(cohorts) > 1:
+        return {
+            "measurement_scope": (
+                "multiple_runtime_cohorts; consult cohort-specific CDF/raw CSV"
+            ),
+            "runtime_cohort_count": str(len(cohorts)),
+        }
+
     metrics: dict[str, str] = {}
-    for operation, values in grouped.items():
+    if not cohorts:
+        return metrics
+    operations = next(iter(cohorts.values()))
+    for operation, values in operations.items():
         if values:
             ordered = sorted(values)
             metrics[f"{operation}_median_latency_us"] = f"{statistics.median(values):.6f}"
@@ -268,6 +351,25 @@ def _pqc_metrics(rows: Sequence[Mapping[str, str]]) -> dict[str, str]:
                 f"{ordered[math.ceil(0.95 * len(ordered)) - 1]:.6f}"
             )
     return metrics
+
+
+def _pqc_cohort_label(cohort: tuple[str, ...]) -> str:
+    metadata = dict(zip(PQC_COHORT_COLUMNS, cohort))
+    labels: list[str] = []
+    if metadata["implementation"]:
+        labels.append(metadata["implementation"].split(" ", maxsplit=1)[0])
+    if metadata["implementation_version"]:
+        labels.append(f"v{metadata['implementation_version']}")
+    if metadata["platform"]:
+        labels.append("-".join(metadata["platform"].split("-")[:3]))
+    if metadata["python_version"]:
+        labels.append(f"Python {'.'.join(metadata['python_version'].split('.')[:2])}")
+    if metadata["warmup_iterations"] or metadata["measured_iterations"]:
+        labels.append(
+            f"warmup={metadata['warmup_iterations'] or '?'}"
+            f", n={metadata['measured_iterations'] or '?'}"
+        )
+    return ", ".join(labels) or "runtime unspecified"
 
 
 def _write_comparison_table(
@@ -305,11 +407,16 @@ def create_plots(
         logger.info("No experiment CSV files supplied; analysis skipped.")
         return []
 
-    qkd_rows = (
-        _unique_qkd_runs(_read_csv_files(qkd_paths, QKD_REQUIRED_COLUMNS))
-        if qkd_paths else []
+    qkd_measurement_rows = (
+        _read_csv_files(qkd_paths, QKD_REQUIRED_COLUMNS) if qkd_paths else []
     )
-    pqc_rows = _read_csv_files(pqc_paths, PQC_REQUIRED_COLUMNS) if pqc_paths else []
+    qkd_rows = _unique_qkd_runs(qkd_measurement_rows)
+    simulator_rows = _unique_qkd_measurement_runs(qkd_measurement_rows)
+    pqc_rows = (
+        _unique_pqc_samples(_read_csv_files(pqc_paths, PQC_REQUIRED_COLUMNS))
+        if pqc_paths else []
+    )
+    pqc_cohorts = _pqc_samples_by_cohort(pqc_rows)
     figures_path = Path(figures_dir) if figures_dir else resolve_project_path("figures")
     processed_path = (
         Path(processed_dir) if processed_dir
@@ -353,34 +460,27 @@ def create_plots(
             ):
                 created.append(path)
 
-    if pqc_rows:
-        grouped: dict[str, list[float]] = {operation: [] for operation in PQC_OPERATIONS}
-        for index, row in enumerate(pqc_rows, start=2):
-            if row.get("algorithm") != "ML-KEM-768":
-                raise ValueError(
-                    f"Row {index} has unsupported algorithm {row.get('algorithm')!r}; "
-                    "only ML-KEM-768 results may be analyzed."
-                )
-            operation = row.get("operation", "")
-            latency = _number(row, "latency_us", index)
-            if operation not in grouped:
-                logger.warning("Skipping row %d: unknown ML-KEM operation '%s'.", index, operation)
-                continue
-            if latency is not None and latency >= 0:
-                grouped[operation].append(latency)
-            elif latency is not None:
-                logger.warning("Skipping row %d: latency_us must be non-negative.", index)
-
-        if any(grouped.values()):
+    if pqc_cohorts:
+        if any(
+            values
+            for operations in pqc_cohorts.values()
+            for values in operations.values()
+        ):
             import matplotlib.pyplot as plt
 
             figure, axis = plt.subplots()
-            for operation, values in grouped.items():
-                if values:
-                    ordered = sorted(values)
-                    cumulative = [(index + 1) / len(ordered)
-                                 for index in range(len(ordered))]
-                    axis.step(ordered, cumulative, where="post", label=operation)
+            multiple_cohorts = len(pqc_cohorts) > 1
+            for cohort, operations in pqc_cohorts.items():
+                for operation, values in operations.items():
+                    if values:
+                        ordered = sorted(values)
+                        cumulative = [
+                            (index + 1) / len(ordered) for index in range(len(ordered))
+                        ]
+                        label = operation
+                        if multiple_cohorts:
+                            label = f"{operation} ({_pqc_cohort_label(cohort)})"
+                        axis.step(ordered, cumulative, where="post", label=label)
             axis.set_xlabel("Operation latency (microseconds)")
             axis.set_ylabel("Cumulative fraction")
             axis.set_title("ML-KEM-768 operation latency distributions")
@@ -396,8 +496,8 @@ def create_plots(
             logger.warning("No valid ML-KEM latency samples; latency figure not created.")
 
     comparison_path = _write_comparison_table(
-        _qkd_metrics(qkd_rows) if qkd_rows else None,
-        _pqc_metrics(pqc_rows) if pqc_rows else None,
+        _qkd_metrics(qkd_rows, simulator_rows) if qkd_rows else None,
+        _pqc_metrics(pqc_cohorts) if pqc_rows else None,
         processed_path,
     )
     logger.info("Comparison table saved: %s", comparison_path)

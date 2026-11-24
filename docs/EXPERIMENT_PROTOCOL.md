@@ -84,7 +84,9 @@ Comparison CSV không gộp mean QBER/sifting/loss qua các cấu hình khác nh
 nó ghi `measurement_scope` và `setting_count`, còn số liệu theo điều kiện được xem trong từng biểu đồ
 và run CSV. Thời gian và throughput mô phỏng chỉ được tổng hợp khi số tín hiệu, xác suất mô hình,
 simulator version, Python version và platform đồng nhất; dữ liệu trộn điều kiện/runtime được giữ
-riêng và không tính mean chung.
+riêng và không tính mean chung. Các run trùng seed/cấu hình chỉ được tính một lần cho kết quả BB84
+deterministic; timing simulator giữ các `run_id` khác nhau vì mỗi lần thực thi là một phép đo runtime
+mới, nhưng bỏ bản export lặp cùng `run_id`.
 Kết quả batch đã quan sát được và các giới hạn được ghi tại
 [reports/QKD_BB84_EXPERIMENT.md](../reports/QKD_BB84_EXPERIMENT.md); báo cáo đang chờ review.
 
@@ -115,6 +117,11 @@ byte áp dụng, warmup/repetition count, implementation/version, platform và P
 liệu bí mật không được xuất. Nếu thư viện vắng hoặc không tương thích, `run_pqc_benchmark.py` trả
 mã 2 và không tạo benchmark CSV; ghi nhận trạng thái đó là “unavailable/skipped”, không phải số
 đo.
+
+Khi phân tích nhiều CSV ML-KEM, sample lặp cùng `(run_id, operation, iteration)` chỉ được tính một
+lần. CDF được chia thành các cohort riêng theo implementation/version, platform, Python version,
+warm-up và số iteration đo; comparison không gộp median/p95 giữa các cohort khác runtime hoặc cấu
+hình đo. Xem từng đường CDF và metadata CSV để diễn giải số liệu.
 
 ## Diễn giải hiệu năng và hạ tầng
 

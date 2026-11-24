@@ -17,7 +17,8 @@ lập khóa, và yêu cầu hạ tầng ảnh hưởng ra sao đến tính phù 
   thuật toán khác.
 - **Phân tích:** tạo biểu đồ từ CSV thực tế và bảng so sánh ghi rõ dữ liệu đo, nhận định định tính
   và giả định. Tốc độ simulator BB84 và latency ML-KEM là các phép đo khác loại, không kết luận
-  trực tiếp QKD nhanh/chậm hơn; hạ tầng được đánh giá định tính, không có xếp hạng deployment.
+  trực tiếp QKD nhanh/chậm hơn. Phân tích không gộp latency ML-KEM giữa các implementation,
+  phiên bản hoặc runtime khác nhau; hạ tầng được đánh giá định tính, không có xếp hạng deployment.
 
 Không kết luận rằng QBER dưới 11% chứng minh khóa an toàn, hoặc benchmark phần mềm chứng minh PQC
 luôn nhanh hơn QKD. Hệ thống QKD thực tế cần kênh cổ điển được xác thực và các bước xử lý bảo mật

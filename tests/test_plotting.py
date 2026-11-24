@@ -142,7 +142,7 @@ def test_plotting_does_not_count_duplicate_seeded_runs_as_repetitions(tmp_path):
         measured_rows = list(csv.DictReader(stream))
     assert {
         row["qkd"] for row in measured_rows
-        if row["dimension"] == "Measured QKD: valid_run_rows"
+        if row["dimension"] == "Measured BB84 simulator: valid_run_rows"
     } == {"1"}
 
 
@@ -206,11 +206,11 @@ def test_plotting_omits_averages_across_mixed_qkd_settings(tmp_path):
         dimensions = {
             row["dimension"]: row["qkd"] for row in csv.DictReader(stream)
         }
-    assert "Measured QKD: mean_qber" not in dimensions
-    assert dimensions["Measured QKD: measurement_scope"] == (
+    assert "Measured BB84 simulator: mean_qber" not in dimensions
+    assert dimensions["Measured BB84 simulator: measurement_scope"] == (
         "multiple_settings; consult per-setting plots"
     )
-    assert dimensions["Measured QKD: setting_count"] == "2"
+    assert dimensions["Measured BB84 simulator: setting_count"] == "2"
     assert "Measured BB84 simulator: simulation_elapsed_us_mean" not in dimensions
     assert dimensions["Measured BB84 simulator: simulation_performance_scope"] == (
         "multiple_conditions_or_runtimes; consult raw CSV"
@@ -283,3 +283,172 @@ def test_plotting_reports_bb84_simulator_performance_for_one_runtime(tmp_path):
     assert dimensions[
         "Measured BB84 simulator: simulation_signals_per_second_mean"
     ] == "75000.000000"
+
+
+def test_plotting_keeps_distinct_simulator_timing_runs_with_same_seed(tmp_path):
+    qkd_file = tmp_path / "qkd.csv"
+    fields = (
+        "run_id",
+        "seed",
+        "n_signals",
+        "channel_error_rate",
+        "eve_probability",
+        "channel_loss_rate",
+        "qber_threshold",
+        "simulator_version",
+        "python_version",
+        "platform",
+        "qber",
+        "sifted_fraction",
+        "simulation_elapsed_us",
+        "simulation_signals_per_second",
+    )
+    common = {
+        "n_signals": "100",
+        "channel_error_rate": "0",
+        "eve_probability": "0",
+        "channel_loss_rate": "0",
+        "qber_threshold": "0.11",
+        "simulator_version": "0.1.0",
+        "python_version": "3.14.2",
+        "platform": "test-platform",
+        "qber": "0",
+        "sifted_fraction": "0.5",
+        "seed": "42",
+    }
+    _write_rows(
+        qkd_file,
+        fields,
+        [
+            {
+                **common,
+                "run_id": "first-run",
+                "simulation_elapsed_us": "1000",
+                "simulation_signals_per_second": "100000",
+            },
+            {
+                **common,
+                "run_id": "second-run",
+                "simulation_elapsed_us": "3000",
+                "simulation_signals_per_second": "50000",
+            },
+        ],
+    )
+
+    create_plots(
+        qkd_csv=qkd_file,
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    with next((tmp_path / "processed").glob("*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {row["dimension"]: row["qkd"] for row in csv.DictReader(stream)}
+    assert dimensions["Measured BB84 simulator: valid_run_rows"] == "1"
+    assert dimensions["Measured BB84 simulator: simulation_performance_rows"] == "2"
+    assert dimensions["Measured BB84 simulator: simulation_elapsed_us_mean"] == (
+        "2000.000000"
+    )
+    assert dimensions[
+        "Measured BB84 simulator: simulation_signals_per_second_mean"
+    ] == "75000.000000"
+
+
+def test_plotting_omits_mlkem_averages_across_runtime_cohorts(tmp_path):
+    pqc_file = tmp_path / "mlkem.csv"
+    fields = (
+        "run_id",
+        "algorithm",
+        "operation",
+        "iteration",
+        "latency_us",
+        "implementation",
+        "implementation_version",
+        "platform",
+        "python_version",
+        "warmup_iterations",
+        "measured_iterations",
+    )
+    _write_rows(
+        pqc_file,
+        fields,
+        [
+            {
+                "run_id": "run-a",
+                "algorithm": "ML-KEM-768",
+                "operation": "key_generation",
+                "iteration": "1",
+                "latency_us": "10",
+                "implementation": "pqcrypto",
+                "implementation_version": "1.0",
+                "platform": "machine-a",
+                "python_version": "3.14",
+                "warmup_iterations": "10",
+                "measured_iterations": "2",
+            },
+            {
+                "run_id": "run-b",
+                "algorithm": "ML-KEM-768",
+                "operation": "key_generation",
+                "iteration": "1",
+                "latency_us": "100",
+                "implementation": "pqcrypto",
+                "implementation_version": "1.0",
+                "platform": "machine-b",
+                "python_version": "3.14",
+                "warmup_iterations": "10",
+                "measured_iterations": "2",
+            },
+        ],
+    )
+
+    figures = create_plots(
+        pqc_csv=pqc_file,
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    assert [path.name for path in figures] == ["mlkem_latency_cdf.png"]
+    with next((tmp_path / "processed").glob("*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {row["dimension"]: row["pqc"] for row in csv.DictReader(stream)}
+    assert "Measured ML-KEM-768: key_generation_median_latency_us" not in dimensions
+    assert dimensions["Measured ML-KEM-768: measurement_scope"] == (
+        "multiple_runtime_cohorts; consult cohort-specific CDF/raw CSV"
+    )
+    assert dimensions["Measured ML-KEM-768: runtime_cohort_count"] == "2"
+
+
+def test_plotting_deduplicates_repeated_mlkem_export_samples(tmp_path):
+    pqc_file = tmp_path / "mlkem.csv"
+    fields = (
+        "run_id",
+        "algorithm",
+        "operation",
+        "iteration",
+        "latency_us",
+    )
+    row = {
+        "run_id": "same-run",
+        "algorithm": "ML-KEM-768",
+        "operation": "key_generation",
+        "iteration": "1",
+        "latency_us": "10",
+    }
+    _write_rows(pqc_file, fields, [row, row, {**row, "iteration": "2", "latency_us": "30"}])
+
+    create_plots(
+        pqc_csv=pqc_file,
+        figures_dir=tmp_path / "figures",
+        processed_dir=tmp_path / "processed",
+    )
+
+    with next((tmp_path / "processed").glob("*.csv")).open(
+        newline="", encoding="utf-8"
+    ) as stream:
+        dimensions = {row["dimension"]: row["pqc"] for row in csv.DictReader(stream)}
+    assert dimensions["Measured ML-KEM-768: key_generation_median_latency_us"] == (
+        "20.000000"
+    )

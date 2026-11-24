@@ -17,6 +17,7 @@ def test_tradeoffs_separate_qualitative_claims_and_measured_data():
 
     measured = [item for item in items if item.evidence_type == "measured_project_data"]
     assert len(measured) == 2
+    assert measured[0].dimension == "Measured BB84 simulator: mean_qber"
     assert measured[0].qkd == "0.05"
     assert measured[0].pqc == "not applicable"
     assert measured[1].qkd == "not applicable"
@@ -56,7 +57,10 @@ def test_tradeoff_metrics_are_sorted_deterministically():
         if item.evidence_type == "measured_project_data"
     ]
 
-    assert measured_dimensions == ["Measured QKD: a_metric", "Measured QKD: z_metric"]
+    assert measured_dimensions == [
+        "Measured BB84 simulator: a_metric",
+        "Measured BB84 simulator: z_metric",
+    ]
 
 
 @pytest.mark.parametrize(

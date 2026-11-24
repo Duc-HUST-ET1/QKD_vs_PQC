@@ -74,7 +74,7 @@ def _measured_valid_rows(processed_dir) -> int:
     assert len(tables) == 1
     with tables[0].open(encoding="utf-8", newline="") as stream:
         rows = {row["dimension"]: row for row in csv.DictReader(stream)}
-    return int(rows["Measured QKD: valid_run_rows"]["qkd"])
+    return int(rows["Measured BB84 simulator: valid_run_rows"]["qkd"])
 
 
 def test_pipeline_completes_bb84_and_skips_missing_mlkem_honestly(run_all, monkeypatch,
