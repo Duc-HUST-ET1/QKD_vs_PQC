@@ -1,0 +1,141 @@
+% !TeX program = xelatex
+% Biên dịch bằng pdfLaTeX hoặc XeLaTeX. Hình được vẽ trong tài liệu.
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=2.25cm,headheight=15pt]{geometry}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T5]{fontenc}
+\else
+  \usepackage{fontspec}
+  \setmainfont{TeX Gyre Termes}
+\fi
+\usepackage{amsmath,booktabs,tabularx,fancyhdr,pgfplots}
+\usetikzlibrary{arrows.meta}
+\pgfplotsset{compat=1.18}
+\usepackage[hidelinks]{hyperref}
+\definecolor{inkblue}{HTML}{244E72}
+\definecolor{ochre}{HTML}{97591F}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\renewcommand{\arraystretch}{1.2}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Lý thuyết mật mã -- Đồ án Topic 13}
+\fancyhead[R]{\small Báo cáo tiến độ tuần 11}
+\fancyfoot[L]{\small Nhóm 12 -- Topic 13 (QKD vs PQC)}
+\fancyfoot[R]{\small Trang \thepage}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\begin{document}
+\begin{center}
+{\bfseries ĐẠI HỌC BÁCH KHOA HÀ NỘI\\TRƯỜNG ĐIỆN -- ĐIỆN TỬ}\\[10pt]
+{\Large\bfseries BÁO CÁO TIẾN ĐỘ THỰC HIỆN TUẦN 11}\\[6pt]
+{\bfseries ĐỀ TÀI: QKD VERSUS POST-QUANTUM CRYPTOGRAPHY:\\
+SECURITY MODELS AND SYSTEM TRADE-OFFS}
+\end{center}
+
+\begin{tabularx}{\linewidth}{@{}lX@{}}
+\textbf{Đơn vị thực hiện} & Nhóm 12 \\
+\textbf{Thành viên nhóm} & 1. Trần Anh Đức \quad 2. Đỗ Phương Điệp \quad 3. Vũ Việt Thiện \newline
+4. Đào Ngọc Tuấn Linh \quad 5. Trần Xuân Kiên \\
+\textbf{Kỳ báo cáo} & 25--27/11/2026, đối chiếu báo cáo ngày 24/11/2026 \\
+\textbf{Môn học} & Lý thuyết mật mã \\
+\textbf{Giảng viên hướng dẫn} & PGS.TS. Hà Duyên Trung và ThS. Phương Xuân Quang \\
+\textbf{Kho lưu trữ Git} & \href{https://github.com/Duc-HUST-ET1/QKD_vs_PQC}{\texttt{QKD\_vs\_PQC}}, nhánh kiểm tra \texttt{feature/system-tradeoffs}, commit \texttt{66e687c} \\
+\end{tabularx}
+
+\section{Mục tiêu trọng tâm và tóm tắt điều hành}
+Sau báo cáo ngày 24/11, nhóm tập trung kiểm tra liệu mỗi số liệu trong bảng tổng hợp có truy ngược được đến lần chạy đã tạo ra nó hay không. Tuần này có ba kết quả chính.
+\begin{itemize}
+\item \textbf{BB84.} Tệp dữ liệu gốc ngày 27/11 ghi thêm một lần đo thời gian vòng lặp. Bảng tổng hợp cùng ngày vẫn dùng thời gian ngày 17/11. Nhóm đã xác định bước xử lý khiến lần đo mới bị bỏ sót.
+\item \textbf{ML-KEM-768.} Từ 9.000 mẫu đã thu ngày 19/10 và 07/11, nhóm tính lại được cả ba cặp trung vị và phân vị 95 trong bảng ngày 27/11. Tuần này xác minh kết quả tổng hợp dữ liệu lịch sử.
+\item \textbf{Mã nguồn và kiểm thử.} Các sửa đổi còn ở bản làm việc khi lập báo cáo tuần 10 đã được lưu tại \href{https://github.com/Duc-HUST-ET1/QKD_vs_PQC/compare/c8166f7...146687f}{commit \texttt{146687f}} trên nhánh \texttt{feature/qkd}. Commit này bổ sung cách tách lần đo thời gian BB84, phân nhóm mẫu ML-KEM theo môi trường và ba kiểm thử hồi quy. Trên nhánh kiểm tra tuần 11, commit \texttt{66e687c} đã gỡ 21 đường dẫn tạm của pytest khỏi danh sách tệp Git theo dõi.
+\end{itemize}
+
+\newpage
+\section{Kết quả phân tích thực nghiệm và đồ thị trực quan}
+\subsection{BB84: hai lần thực thi cùng seed được đếm như thế nào?}
+Ngày 17/11 và 27/11, mô phỏng dùng seed 42, phát 100.000 tín hiệu, đặt xác suất lật bit ở 1\%, xác suất Eve can thiệp và xác suất mất tín hiệu ở 0. Mỗi lần đều giữ 49.990 bit sau đối sánh cơ sở đo và có 484 bit lỗi. Do đó QBER bằng $484/49\,990 \approx 0{,}9682\%$ và tỷ lệ bit giữ lại bằng $49{,}99\%$.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw=inkblue,rounded corners=2pt,align=center,inner sep=5pt,
+    text width=.36\linewidth,font=\small},
+  flow/.style={-{Stealth[length=2mm]},thick,inkblue}]
+\node[box] (old) at (-3.5,0) {CSV ngày 17/11\\Vòng lặp: 520,1261 ms};
+\node[box] (new) at (3.5,0) {CSV ngày 27/11\\Vòng lặp: 220,7783 ms};
+\node[box,fill=blue!5,text width=.62\linewidth] (dedup) at (0,-1.55)
+  {Mã tại \texttt{66e687c} duyệt các tệp theo tên,\\giữ dòng đầu khi seed và cấu hình trùng nhau};
+\node[box] (result) at (-3.5,-3.15) {Kết quả mô phỏng\\Một giá trị QBER: 0,9682\%};
+\node[box,draw=ochre] (timing) at (3.5,-3.15) {Thời gian trong bảng 27/11\\Chỉ còn 520,1261 ms của 17/11};
+\draw[flow] (old.south) -- (dedup.north west);
+\draw[flow] (new.south) -- (dedup.north east);
+\draw[flow] (dedup.south west) -- (result.north);
+\draw[flow] (dedup.south east) -- (timing.north);
+\end{tikzpicture}
+\caption{Đường đi của hai dòng BB84 trên nhánh kiểm tra. Cùng seed và cấu hình cho một kết quả QBER xác định, nhưng mỗi lần thực thi có thời gian riêng.}
+\end{figure}
+
+Hai bảng tổng hợp ngày 17/11 và 27/11 có cùng mã băm SHA-256. Chênh lệch giữa hai thời gian vòng lặp chưa đủ để kết luận tốc độ mô phỏng đã cải thiện.
+
+\subsection{ML-KEM-768: đối chiếu trung vị và phân vị 95}
+Ba tệp CSV ghi cùng môi trường Windows build 26200, Python 3.13.14 và \texttt{pqcrypto} 0.4.0. Mỗi lần chạy gồm 50 vòng khởi động và 1.000 mẫu cho mỗi thao tác. Nhóm gộp 3.000 mẫu theo từng thao tác, sắp xếp độ trễ tăng dần rồi lấy mẫu thứ 2.850 cho p95 theo phương pháp \textit{nearest rank}.
+
+\begin{figure}[ht]
+\centering
+\begin{tikzpicture}
+\begin{axis}[
+ width=.91\linewidth,height=4.8cm,
+ xmin=0,xmax=4550,ymin=0.45,ymax=3.55,ytick={1,2,3},
+ yticklabels={Mở gói khóa,Đóng gói khóa,Sinh cặp khóa},
+ xlabel={Độ trễ thao tác ($\mu$s)},xtick={0,1000,2000,3000,4000},
+ scaled x ticks=false,xticklabel style={/pgf/number format/1000 sep={\,}},
+ axis x line*=bottom,axis y line*=left,xmajorgrids,grid style={gray!25},
+ tick label style={font=\small},label style={font=\small},
+ legend style={at={(0.5,1.02)},anchor=south,draw=none,font=\small},
+ legend columns=2]
+\addplot[only marks,mark=*,inkblue,mark size=2.8pt] coordinates
+ {(163.15,1) (584.55,2) (588.90,3)};
+\addlegendentry{Trung vị}
+\addplot[only marks,mark=square*,ochre,mark size=2.8pt] coordinates
+ {(514.9,1) (2883.8,2) (3732.8,3)};
+\addlegendentry{Phân vị 95}
+\end{axis}
+\end{tikzpicture}
+\caption{Độ trễ từ ba lần chạy lịch sử, đối chiếu ngày 27/11. Sinh cặp khóa và đóng gói khóa có trung vị gần nhau (588,90 và 584,55~$\mu$s), nhưng p95 lần lượt là 3.732,8 và 2.883,8~$\mu$s. Với mở gói khóa, hai giá trị là 163,15 và 514,9~$\mu$s.}
+\end{figure}
+
+\clearpage
+\section{Đánh giá đánh đổi hệ thống}
+\begin{table}[ht]
+\centering\small
+\begin{tabularx}{\linewidth}{@{}p{.17\linewidth}XX@{}}
+\toprule
+\textbf{Tiêu chí} & \textbf{BB84 / QKD} & \textbf{ML-KEM-768 / PQC}\\
+\midrule
+Dữ liệu hiệu năng & Thời gian xử lý 100.000 tín hiệu trong vòng lặp Python. & Độ trễ sinh cặp khóa, đóng gói và mở gói trên máy đo.\\
+Ý nghĩa bảo mật & QBER mô tả tỷ lệ bit lỗi sau đối sánh cơ sở. Độ dài khóa bí mật sau xử lý còn phụ thuộc sửa lỗi và khuếch đại riêng tư. & Benchmark đo phép toán của KEM. Xác thực danh tính hai bên cần được xử lý ở tầng giao thức.\\
+Hạ tầng triển khai & Cần thiết bị, kênh lượng tử và kênh cổ điển đã xác thực. Thí nghiệm dùng mô phỏng. & Cần thư viện tương thích, tích hợp giao thức và quản lý khóa trên thiết bị đầu cuối.\\
+\bottomrule
+\end{tabularx}
+\caption{Phạm vi so sánh ở mốc tuần 11. Đánh giá độ trễ đầu-cuối, cự ly và chi phí triển khai còn cần dữ liệu theo một kịch bản chung.}
+\end{table}
+
+\textbf{Trạng thái kiểm thử.} Báo cáo tuần 10 ghi 73 kiểm thử đạt, 2 bỏ qua trên Python 3.14.2. Ngày 27/11, bộ kiểm thử tại \texttt{66e687c} trên Python 3.13.14 đạt 70, bỏ qua 2 trong 27,63 giây. Hai mốc dùng hai cây mã khác nhau. Ba kiểm thử hồi quy về nhóm dữ liệu nằm trên nhánh \texttt{feature/qkd}. Hai kiểm thử dùng ML-KEM thật bị bỏ qua ngày 27/11 do giao diện của \texttt{pqcrypto} 0.4.0 khác giao diện adapter yêu cầu.
+
+\section{Kế hoạch tiếp theo và chuẩn bị bảo vệ}
+\begin{enumerate}
+\item Rà soát \texttt{146687f} trước khi tích hợp. Với hai lần chạy cùng seed trong Hình~1, tiêu chí nghiệm thu là giữ cả hai thời gian vòng lặp và chỉ đếm một kết quả QBER.
+\item Xác minh hai kiểm thử ML-KEM trên môi trường tương thích: hai bên thu được cùng bí mật và bộ đo xuất đủ mẫu ra CSV.
+\item Gắn hình và bảng dùng cho báo cáo, slide bảo vệ với danh sách CSV, cấu hình và phiên bản mã. Hoàn tất phản biện độc lập báo cáo BB84 và các phát biểu về bảo mật.
+\end{enumerate}
+
+{\small\textbf{Nguồn dữ liệu cho các hình.} Các tệp sau nằm trong \path{data/raw/} tại máy kiểm tra.\\
+Hình 1: \path{qkd_20261117T153737_f85e2488.csv}, \path{qkd_20261127T150032_8e76e66e.csv}.\\
+Hình 2: \path{mlkem_20261019T085230_11c2a248.csv}, \path{mlkem_20261107T154257_948b90ae.csv}, \path{mlkem_20261107T154351_3af4a310.csv}.\\
+Mốc đối chiếu: \href{https://github.com/Duc-HUST-ET1/QKD_vs_PQC/blob/146687f/reports/PROGRESS_REPORT_2026-11-24.md}{báo cáo tuần 10 ngày 24/11}.}
+\end{document}
